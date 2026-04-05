@@ -72,10 +72,10 @@ const INITIAL_FRAMES = [
   { id: 'sea', name: '바다', image: '/frames/ocean_frame.png' },
   { id: 'wave', name: '파도', image: '/frames/wave_frame.jpg' },
   { id: 'beach', name: '해변', image: '/frames/beach_frame.jpg' },
-  { id: 'snow', name: '눈', image: '/frames/snow_frame.jpg' },
-  { id: 'bokeh', name: '보케', image: '/frames/bokeh_frame.jpg' },
-  { id: 'winter', name: '겨울', image: '/frames/winter_frame.jpg' },
-  { id: 'night', name: '야경', image: '/frames/night_frame.jpg' },
+  { id: 'snow', name: '눈', image: 'https://images.unsplash.com/photo-1516086774618-b80c5929ffcd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+  { id: 'bokeh', name: '보케', image: 'https://images.unsplash.com/photo-1557283623-64ba14502d9c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+  { id: 'winter', name: '겨울', image: 'https://images.unsplash.com/photo-1483664852095-d6cc68707022?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+  { id: 'night', name: '야경', image: 'https://images.unsplash.com/photo-1477346611620-80140c41f94ea?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
   { id: 'flower', name: '꽃', image: '/frames/flower_frame.png' },
   { id: 'aurora', name: '오로라', image: '/frames/aurora_frame.png' },
   { id: 'sunset', name: '노을', image: '/frames/sunset_frame.png' },
@@ -109,6 +109,7 @@ function App() {
   const [qrUrl, setQrUrl] = useState('');
   const [downloadPageImage, setDownloadPageImage] = useState(null);
   const [isDownloadPage, setIsDownloadPage] = useState(false);
+  const [resultPhase, setResultPhase] = useState('frame');
 
   const webcamRef = useRef(null);
   const isCapturing = useRef(false);
@@ -213,6 +214,10 @@ function App() {
   const shareQRImage = async () => {
     const element = document.getElementById('final-result');
     if (!element) return;
+    
+    setShowQR(true);
+    setQrUrl('');
+
     const canvas = await html2canvas(element, { useCORS: true, scale: 2, backgroundColor: null });
     const dataUrl = canvas.toDataURL('image/png');
     
@@ -225,11 +230,13 @@ function App() {
       if (res.ok) {
         const data = await res.json();
         setQrUrl(`${window.location.origin}/?download=${data.id}`);
-        setShowQR(true);
+      } else {
+        throw new Error('Backend responded with non-ok status');
       }
     } catch (err) {
       console.error('QR share failed', err);
-      alert('QR 공유에 실패했습니다. 백엔드 연결을 확인해주세요.');
+      alert('백엔드 연결 실패: 현재 화면 주소를 공유합니다.');
+      setQrUrl(window.location.href);
     }
   };
 
@@ -463,43 +470,50 @@ function App() {
               </div>
 
               <div className="flex-1 flex flex-col gap-8 w-full max-w-[360px] p-8 bg-white/60 backdrop-blur-2xl rounded-[50px] border border-neutral-100 shadow-2xl overflow-y-auto custom-scrollbar max-h-full">
-                  <div className="flex flex-col gap-4">
-                     <h4 className="text-[13px] font-black text-indigo-700 italic flex items-center gap-2"><span className="bg-indigo-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]">1</span> 프레임 선택</h4>
-                     <div className="grid grid-cols-4 gap-3">
-                        {INITIAL_FRAMES.map((f)=>(
-                          <button key={f.id} onClick={()=>setSelectedFrame(f)} className={`aspect-square rounded-2xl border-2 transition-all relative overflow-hidden flex-shrink-0 ${selectedFrame.id === f.id ? 'border-indigo-600 scale-110 shadow-lg z-10' : 'border-neutral-50 hover:bg-white'}`}>
-                            {f.image ? <img src={f.image} className="w-full h-full object-cover" /> : f.gradient ? <div className={`w-full h-full bg-gradient-to-br ${f.gradient}`} /> : <div className="w-full h-full" style={{ backgroundColor: f.hex }} />}
-                          </button>
-                        ))}
-                        {customFrames.map((f)=>(
-                          <div key={f.id} className="relative group">
-                             <button onClick={()=>setSelectedFrame(f)} className={`aspect-square rounded-2xl border-2 transition-all relative overflow-hidden flex-shrink-0 ${selectedFrame.id === f.id ? 'border-indigo-600 scale-110 shadow-lg z-10' : 'border-neutral-50'}`}>
-                                <img src={f.image} className="w-full h-full object-cover" />
-                             </button>
-                             <button onClick={()=>deleteCustomFrame(f.id)} className="absolute -top-1 -right-1 bg-rose-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity ring-2 ring-white z-20">
-                                <Trash2 size={10} />
-                             </button>
-                          </div>
-                        ))}
-                        <label className="aspect-square rounded-2xl border-2 border-dashed border-neutral-200 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-white transition-all text-neutral-300">
-                           <Plus size={20} />
-                           <input type="file" className="hidden" onChange={handleFrameUpload} accept="image/png, image/jpeg" />
-                        </label>
-                     </div>
-                  </div>
-
-                  <div className="flex flex-col gap-4">
-                     <h4 className="text-[13px] font-black text-rose-500 italic flex items-center gap-2"><span className="bg-rose-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]">2</span> 필터 무드</h4>
-                     <div className="grid grid-cols-3 gap-3">
-                        {FILTERS.map((f)=>(
-                          <button key={f.id} onClick={()=>setActiveFilter(f)} className={`aspect-square rounded-2xl border-2 transition-all overflow-hidden ${activeFilter.id === f.id ? 'border-rose-400 scale-110 shadow-lg z-10' : 'border-neutral-50 hover:bg-white'}`}>
-                             <div className="w-full h-full" style={{ filter: f.filter }}><img src={capturedPhotos[0]} className="w-full h-full object-cover" /></div>
-                          </button>
-                        ))}
-                     </div>
-                  </div>
-
-                  <button onClick={saveImage} className="w-full py-8 bg-neutral-900 text-white rounded-[40px] font-black text-2xl flex items-center justify-center gap-4 shadow-2xl hover:bg-black active:scale-95 transition-all">저장하기</button>
+                  {resultPhase === 'frame' ? (
+                    <>
+                      <div className="flex flex-col gap-4">
+                         <h4 className="text-[13px] font-black text-indigo-700 italic flex items-center gap-2"><span className="bg-indigo-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]">1</span> 프레임 선택</h4>
+                         <div className="grid grid-cols-4 gap-3">
+                            {INITIAL_FRAMES.map((f)=>(
+                              <button key={f.id} onClick={()=>setSelectedFrame(f)} className={`aspect-square rounded-2xl border-2 transition-all relative overflow-hidden flex-shrink-0 ${selectedFrame.id === f.id ? 'border-indigo-600 scale-110 shadow-lg z-10' : 'border-neutral-50 hover:bg-white'}`}>
+                                {f.image ? <img src={f.image} className="w-full h-full object-cover" /> : f.gradient ? <div className={`w-full h-full bg-gradient-to-br ${f.gradient}`} /> : <div className="w-full h-full" style={{ backgroundColor: f.hex }} />}
+                              </button>
+                            ))}
+                            {customFrames.map((f)=>(
+                              <div key={f.id} className="relative group">
+                                 <button onClick={()=>setSelectedFrame(f)} className={`aspect-square rounded-2xl border-2 transition-all relative overflow-hidden flex-shrink-0 ${selectedFrame.id === f.id ? 'border-indigo-600 scale-110 shadow-lg z-10' : 'border-neutral-50'}`}>
+                                    <img src={f.image} className="w-full h-full object-cover" />
+                                 </button>
+                                 <button onClick={()=>deleteCustomFrame(f.id)} className="absolute -top-1 -right-1 bg-rose-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity ring-2 ring-white z-20">
+                                    <Trash2 size={10} />
+                                 </button>
+                              </div>
+                            ))}
+                            <label className="aspect-square rounded-2xl border-2 border-dashed border-neutral-200 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-white transition-all text-neutral-300">
+                               <Plus size={20} />
+                               <input type="file" className="hidden" onChange={handleFrameUpload} accept="image/png, image/jpeg" />
+                            </label>
+                         </div>
+                      </div>
+                      <button onClick={() => setResultPhase('filter')} className="w-full py-8 mt-6 bg-indigo-600 text-white rounded-[40px] font-black text-2xl flex items-center justify-center gap-4 shadow-xl hover:bg-indigo-700 active:scale-95 transition-all">다음: 필터 고르기 <ChevronRight size={28} /></button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => setResultPhase('frame')} className="text-sm text-neutral-400 font-bold mb-2 flex items-center gap-1 hover:text-neutral-800 transition-colors"><ChevronLeft size={16}/> 프레임 다시 고르기</button>
+                      <div className="flex flex-col gap-4">
+                         <h4 className="text-[13px] font-black text-rose-500 italic flex items-center gap-2"><span className="bg-rose-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]">2</span> 필터 무드</h4>
+                         <div className="grid grid-cols-3 gap-3">
+                            {FILTERS.map((f)=>(
+                              <button key={f.id} onClick={()=>setActiveFilter(f)} className={`aspect-square rounded-2xl border-2 transition-all overflow-hidden ${activeFilter.id === f.id ? 'border-rose-400 scale-110 shadow-lg z-10' : 'border-neutral-50 hover:bg-white'}`}>
+                                 <div className="w-full h-full" style={{ filter: f.filter }}><img src={capturedPhotos[0]} className="w-full h-full object-cover" /></div>
+                              </button>
+                            ))}
+                         </div>
+                      </div>
+                      <button onClick={saveImage} className="w-full py-8 mt-6 bg-neutral-900 text-white rounded-[40px] font-black text-2xl flex items-center justify-center gap-4 shadow-2xl hover:bg-black active:scale-95 transition-all">저장하기</button>
+                    </>
+                  )}
                   
                   <div className="flex gap-4">
                     <button onClick={shareQRImage} className={`flex-1 py-5 rounded-[25px] font-black text-sm transition-all border-2 bg-white border-neutral-100 text-neutral-400 hover:bg-neutral-50 active:scale-95`}>QR 공유</button>
@@ -515,7 +529,14 @@ function App() {
                         <button onClick={() => setShowQR(false)} className="absolute top-6 right-6 p-3 rounded-full hover:bg-neutral-50 transition-colors text-neutral-300"><X size={28} /></button>
                         <h4 className="text-xl font-black italic tracking-tighter text-neutral-800">신림 네컷</h4>
                         <div className="p-6 bg-neutral-50 rounded-[40px] shadow-inner ring-1 ring-neutral-100">
-                          <QRCodeSVG value={qrUrl || window.location.href} size={220} />
+                          {qrUrl === '' ? (
+                            <div className="w-[220px] h-[220px] flex flex-col items-center justify-center text-neutral-400 gap-4">
+                              <div className="w-10 h-10 border-4 border-t-indigo-500 rounded-full animate-spin" />
+                              <span className="font-bold text-sm">로딩 중...</span>
+                            </div>
+                          ) : (
+                            <QRCodeSVG value={qrUrl} size={220} />
+                          )}
                         </div>
                         <div className="flex flex-col gap-2">
                           <p className="text-lg font-black text-neutral-800">스캔하여 저장하세요</p>
