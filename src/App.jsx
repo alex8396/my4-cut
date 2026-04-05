@@ -72,10 +72,10 @@ const INITIAL_FRAMES = [
   { id: 'sea', name: '바다', image: '/frames/ocean_frame.png' },
   { id: 'wave', name: '파도', image: '/frames/wave_frame.jpg' },
   { id: 'beach', name: '해변', image: '/frames/beach_frame.jpg' },
-  { id: 'snow', name: '눈', image: 'https://images.unsplash.com/photo-1516086774618-b80c5929ffcd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
-  { id: 'bokeh', name: '보케', image: 'https://images.unsplash.com/photo-1557283623-64ba14502d9c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
-  { id: 'winter', name: '겨울', image: 'https://images.unsplash.com/photo-1483664852095-d6cc68707022?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
-  { id: 'night', name: '야경', image: 'https://images.unsplash.com/photo-1477346611620-80140c41f94ea?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+  { id: 'snow', name: '눈', image: '/frames/snow_frame.jpg' },
+  { id: 'bokeh', name: '보케', image: '/frames/bokeh_frame.jpg' },
+  { id: 'winter', name: '겨울', image: '/frames/winter_frame.jpg' },
+  { id: 'night', name: '야경', image: '/frames/night_frame.jpg' },
   { id: 'flower', name: '꽃', image: '/frames/flower_frame.png' },
   { id: 'aurora', name: '오로라', image: '/frames/aurora_frame.png' },
   { id: 'sunset', name: '노을', image: '/frames/sunset_frame.png' },
@@ -528,14 +528,14 @@ function App() {
                     <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-white p-10 rounded-[60px] shadow-3xl flex flex-col items-center gap-8 text-center relative max-w-sm w-full border border-neutral-50">
                         <button onClick={() => setShowQR(false)} className="absolute top-6 right-6 p-3 rounded-full hover:bg-neutral-50 transition-colors text-neutral-300"><X size={28} /></button>
                         <h4 className="text-xl font-black italic tracking-tighter text-neutral-800">신림 네컷</h4>
-                        <div className="p-6 bg-neutral-50 rounded-[40px] shadow-inner ring-1 ring-neutral-100">
+                        <div className="p-6 bg-neutral-50 rounded-[40px] shadow-inner ring-1 ring-neutral-100 flex items-center justify-center min-h-[268px]">
                           {qrUrl === '' ? (
                             <div className="w-[220px] h-[220px] flex flex-col items-center justify-center text-neutral-400 gap-4">
                               <div className="w-10 h-10 border-4 border-t-indigo-500 rounded-full animate-spin" />
                               <span className="font-bold text-sm">로딩 중...</span>
                             </div>
                           ) : (
-                            <QRCodeSVG value={qrUrl} size={220} />
+                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrUrl)}`} alt="QR Code" className="w-[220px] h-[220px] rounded-lg" />
                           )}
                         </div>
                         <div className="flex flex-col gap-2">
