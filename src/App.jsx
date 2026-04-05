@@ -141,10 +141,10 @@ function App() {
     return () => clearInterval(interval);
   }, [countdown]);
 
-  // Auto-start countdown when ready for next shot
+  // Auto-start countdown immediately when ready for next shot
   useEffect(() => {
     if (step === STEPS.CAMERA && capturedPhotos.length < selectedShots && countdown === null && !isCapturing.current) {
-      const t = setTimeout(() => setCountdown(timerSeconds), 1200);
+      const t = setTimeout(() => setCountdown(timerSeconds), 300);
       return () => clearTimeout(t);
     }
   }, [step, capturedPhotos.length, selectedShots, countdown, timerSeconds]);
@@ -200,14 +200,123 @@ function App() {
     a.click();
   };
 
-  const saveVideos = () => {
-    const ext = getVideoExt(videoMime.current);
-    selectedClipsForLayout.forEach((url, i) => {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `shillim-4cut-video-${i + 1}-${Date.now()}.${ext}`;
-      a.click();
+  const saveVideoWithFrame = async () => {
+    if (selectedClipsForLayout.length < 4) return;
+
+    // Dimensions matching the displayed video frame (3:4 ratio)
+    const W = 480;
+    const H = 680;
+    const PADDING = 20;
+    const GAP = 10;
+    const cellW = (W - PADDING * 2 - GAP) / 2;
+    const cellH = cellW * (4 / 3);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // Pre-load frame image
+    let frameImg = null;
+    if (selectedFrame.image) {
+      frameImg = new Image();
+      frameImg.crossOrigin = 'anonymous';
+      await new Promise(resolve => { frameImg.onload = resolve; frameImg.onerror = resolve; frameImg.src = selectedFrame.image; });
+    }
+
+    // Create 4 video elements
+    const videos = selectedClipsForLayout.map(url => {
+      const v = document.createElement('video');
+      v.src = url;
+      v.loop = true;
+      v.muted = true;
+      v.crossOrigin = 'anonymous';
+      return v;
     });
+    await Promise.all(videos.map(v => new Promise(resolve => { v.onloadeddata = resolve; v.onerror = resolve; v.load(); })));
+    await Promise.all(videos.map(v => v.play().catch(() => {})));
+
+    // Record the canvas stream
+    const mime = videoMime.current;
+    const stream = canvas.captureStream(30);
+    const recorder = new MediaRecorder(stream, { mimeType: mime });
+    const chunks = [];
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+    const cellPositions = [
+      [PADDING, PADDING],
+      [PADDING + cellW + GAP, PADDING],
+      [PADDING, PADDING + cellH + GAP],
+      [PADDING + cellW + GAP, PADDING + cellH + GAP],
+    ];
+
+    const isDark = selectedFrame.id === 'black';
+
+    let animFrame;
+    const draw = () => {
+      // Background color
+      ctx.fillStyle = selectedFrame.hex || '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+
+      // Frame image overlay
+      if (frameImg) {
+        ctx.globalAlpha = 0.85;
+        ctx.drawImage(frameImg, 0, 0, W, H);
+        ctx.globalAlpha = 1;
+      }
+
+      // Draw 4 clips in 2x2 grid
+      if (activeFilter.filter !== 'none') ctx.filter = activeFilter.filter;
+      videos.forEach((v, i) => {
+        const [x, y] = cellPositions[i];
+        ctx.save();
+        // Rounded rect clip
+        ctx.beginPath();
+        ctx.roundRect(x, y, cellW, cellH, 4);
+        ctx.clip();
+        ctx.drawImage(v, x, y, cellW, cellH);
+        ctx.restore();
+      });
+      ctx.filter = 'none';
+
+      // Bottom label area
+      const labelY = PADDING * 2 + cellH * 2 + GAP + 10;
+      ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(PADDING, labelY); ctx.lineTo(W - PADDING, labelY);
+      ctx.stroke();
+
+      ctx.fillStyle = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)';
+      ctx.font = 'bold italic 22px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('신림 네컷', W / 2, labelY + 28);
+
+      ctx.font = '13px serif';
+      ctx.fillStyle = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)';
+      ctx.fillText(new Date().toLocaleDateString('ko-KR'), W / 2, labelY + 48);
+
+      animFrame = requestAnimationFrame(draw);
+    };
+
+    recorder.start();
+    draw();
+
+    // Record for 6 seconds (length of clips)
+    await new Promise(resolve => setTimeout(resolve, 6000));
+    cancelAnimationFrame(animFrame);
+    videos.forEach(v => v.pause());
+    recorder.stop();
+    await new Promise(resolve => { recorder.onstop = resolve; });
+
+    const ext = getVideoExt(mime);
+    const blob = new Blob(chunks, { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `shillim-4cut-video-${Date.now()}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleFrameUpload = (e) => {
@@ -263,7 +372,7 @@ function App() {
               <Download size={15} /> 사진 저장
             </button>
             {selectedClipsForLayout.length > 0 && (
-              <button onClick={saveVideos}
+              <button onClick={saveVideoWithFrame}
                 className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 text-white rounded-full font-black text-sm hover:bg-violet-700 active:scale-95 transition-all shadow-lg">
                 <Video size={15} /> 동영상 저장 ({getVideoExt(videoMime.current).toUpperCase()})
               </button>
@@ -496,7 +605,7 @@ function App() {
                     <Download size={16} /> 사진 저장
                   </button>
                   {selectedClipsForLayout.length > 0 && (
-                    <button onClick={saveVideos}
+                    <button onClick={saveVideoWithFrame}
                       className="w-full py-4 bg-violet-600 text-white rounded-[25px] font-black text-sm flex items-center justify-center gap-2 hover:bg-violet-700 active:scale-95 transition-all shadow-md">
                       <Video size={16} /> 동영상 저장 ({getVideoExt(videoMime.current).toUpperCase()})
                     </button>
