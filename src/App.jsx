@@ -69,12 +69,18 @@ const INITIAL_FRAMES = [
   { id: 'purple', name: '퍼플', hex: '#d8b4fe' },
   { id: 'rose', name: '핑크', hex: '#fbcfe8' },
   { id: 'red', name: '레드', hex: '#fca5a5' },
-  { id: 'sea', name: '바다', image: '/src/assets/ocean_frame.png' },
-  { id: 'flower', name: '꽃', image: '/src/assets/flower_frame.png' },
-  { id: 'aurora', name: '오로라', image: '/src/assets/aurora_frame.png' },
-  { id: 'sunset', name: '노을', image: '/src/assets/sunset_frame.png' },
-  { id: 'yunseul', name: '윤슬', image: '/src/assets/yunseul.png' },
-  { id: 'sunrise', name: '일출', image: '/src/assets/sunrise.png' },
+  { id: 'sea', name: '바다', image: '/frames/ocean_frame.png' },
+  { id: 'wave', name: '파도', image: '/frames/wave_frame.jpg' },
+  { id: 'beach', name: '해변', image: '/frames/beach_frame.jpg' },
+  { id: 'snow', name: '눈', image: '/frames/snow_frame.jpg' },
+  { id: 'bokeh', name: '보케', image: '/frames/bokeh_frame.jpg' },
+  { id: 'winter', name: '겨울', image: '/frames/winter_frame.jpg' },
+  { id: 'night', name: '야경', image: '/frames/night_frame.jpg' },
+  { id: 'flower', name: '꽃', image: '/frames/flower_frame.png' },
+  { id: 'aurora', name: '오로라', image: '/frames/aurora_frame.png' },
+  { id: 'sunset', name: '노을', image: '/frames/sunset_frame.png' },
+  { id: 'yunseul', name: '윤슬', image: '/frames/yunseul.png' },
+  { id: 'sunrise', name: '일출', image: '/frames/sunrise.png' },
 ];
 
 const FILTERS = [
@@ -99,9 +105,27 @@ function App() {
   const [capturedPhotos, setCapturedPhotos] = useState([]);
   const [countdown, setCountdown] = useState(null);
   const [showQR, setShowQR] = useState(false);
+  const [selectedPhotosForLayout, setSelectedPhotosForLayout] = useState([]);
+  const [qrUrl, setQrUrl] = useState('');
+  const [downloadPageImage, setDownloadPageImage] = useState(null);
+  const [isDownloadPage, setIsDownloadPage] = useState(false);
 
   const webcamRef = useRef(null);
   const isCapturing = useRef(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const dlId = params.get('download');
+    if (dlId) {
+      setIsDownloadPage(true);
+      fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/shared/${dlId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) setDownloadPageImage(data.image);
+        })
+        .catch(err => console.error('Failed to load shared photo', err));
+    }
+  }, []);
 
   useEffect(() => {
     const fetchFrames = async () => {
@@ -178,14 +202,36 @@ function App() {
     }
   }, [capturedPhotos.length, selectedShots]);
 
-  useEffect(() => {
-    if (step === STEPS.SELECT) {
-      const timer = setTimeout(() => {
-        setStep(STEPS.RESULT);
-      }, 2000);
-      return () => clearTimeout(timer);
+  const togglePhotoSelection = (photo) => {
+    setSelectedPhotosForLayout(prev => {
+      if (prev.includes(photo)) return prev.filter(p => p !== photo);
+      if (prev.length < 4) return [...prev, photo];
+      return prev;
+    });
+  };
+
+  const shareQRImage = async () => {
+    const element = document.getElementById('final-result');
+    if (!element) return;
+    const canvas = await html2canvas(element, { useCORS: true, scale: 2, backgroundColor: null });
+    const dataUrl = canvas.toDataURL('image/png');
+    
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/shared`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setQrUrl(`${window.location.origin}/?download=${data.id}`);
+        setShowQR(true);
+      }
+    } catch (err) {
+      console.error('QR share failed', err);
+      alert('QR 공유에 실패했습니다. 백엔드 연결을 확인해주세요.');
     }
-  }, [step]);
+  };
 
   const saveImage = async () => {
     const element = document.getElementById('final-result');
@@ -291,6 +337,30 @@ function App() {
     }
   };
 
+  if (isDownloadPage) {
+    return (
+      <div className="h-screen bg-neutral-900 flex flex-col items-center justify-center p-6 text-center">
+        <h1 className="text-white text-4xl font-black italic mb-8 tracking-tighter">신림 네컷</h1>
+        {downloadPageImage ? (
+          <div className="flex flex-col items-center gap-8 w-full max-w-sm">
+            <img src={downloadPageImage} className="w-full rounded-sm shadow-2xl" />
+            <a href={downloadPageImage} download={`shillim-4cut-${Date.now()}.png`} className="w-full bg-indigo-600 py-5 rounded-full text-white font-black text-xl hover:bg-indigo-700 active:scale-95 transition-all shadow-xl">
+              기기에 이미지 저장하기
+            </a>
+            <p className="text-neutral-400 text-sm font-bold">
+              버튼이 작동하지 않으면<br/>사진을 길게 눌러 직접 저장해주세요.
+            </p>
+          </div>
+        ) : (
+           <div className="flex flex-col items-center gap-4 text-white">
+             <div className="w-12 h-12 border-4 border-t-indigo-500 rounded-full animate-spin" />
+             <p className="font-bold">사진을 불러오는 중...</p>
+           </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen bg-[#fdfcfb] font-sans text-neutral-900 overflow-hidden flex flex-col selection:bg-indigo-100">
       <header className="p-6 flex justify-between items-center bg-white/80 backdrop-blur-xl border-b border-neutral-50 flex-shrink-0">
@@ -337,9 +407,40 @@ function App() {
           )}
 
           {step === STEPS.SELECT && (
-             <motion.div key="select" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center h-full">
-               <div className="relative w-32 h-32 mb-12"><motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }} className="absolute inset-0 border-t-4 border-indigo-600 rounded-full" /><div className="absolute inset-0 flex items-center justify-center text-indigo-100"><ImageIcon size={48} /></div></div>
-               <h2 className="text-5xl font-black italic tracking-tighter text-indigo-600 text-center uppercase">완성 중...</h2>
+             <motion.div key="select" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center p-6 h-full w-full">
+               <h2 className="text-3xl font-black italic tracking-tighter text-indigo-900 mb-2">프레임에 담을 4장을 순서대로 선택해주세요</h2>
+               <p className="text-neutral-500 mb-8 font-bold">{selectedPhotosForLayout.length} / 4 선택됨</p>
+               
+               <div className="grid grid-cols-4 gap-4 w-full max-w-4xl mb-10 overflow-y-auto max-h-[60vh] p-4">
+                 {capturedPhotos.map((photo, i) => {
+                   const selectedIndex = selectedPhotosForLayout.indexOf(photo);
+                   const isSelected = selectedIndex !== -1;
+                   return (
+                     <button 
+                       key={i} 
+                       onClick={() => togglePhotoSelection(photo)}
+                       className={`relative aspect-[3/4] rounded-2xl overflow-hidden shadow-lg border-4 transition-all ${isSelected ? 'border-indigo-600 scale-105' : 'border-white opacity-80 hover:opacity-100'}`}
+                     >
+                        <img src={photo} className="w-full h-full object-cover" />
+                        {isSelected && (
+                          <div className="absolute inset-0 bg-indigo-600/20 flex flex-col items-center justify-center">
+                            <div className="w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black text-2xl shadow-xl ring-4 ring-white">
+                              {selectedIndex + 1}
+                            </div>
+                          </div>
+                        )}
+                     </button>
+                   );
+                 })}
+               </div>
+               
+               <button 
+                 onClick={() => { if (selectedPhotosForLayout.length === 4) setStep(STEPS.RESULT); }}
+                 disabled={selectedPhotosForLayout.length !== 4}
+                 className={`px-12 py-5 rounded-[40px] font-black text-xl flex items-center gap-4 transition-all shadow-xl ${selectedPhotosForLayout.length === 4 ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-105 active:scale-95' : 'bg-neutral-200 text-neutral-400 opacity-50 cursor-not-allowed'}`}
+               >
+                 선택 완료 및 꾸미기 <ChevronRight />
+               </button>
              </motion.div>
           )}
 
@@ -351,11 +452,11 @@ function App() {
                     {selectedFrame?.image && <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />}
                     {selectedFrame?.gradient && <div className={`w-full h-full bg-gradient-to-br ${selectedFrame.gradient} opacity-80`} />}
                   </div>
-                  <div className="relative z-10 w-full" style={{ display: 'grid', gridTemplateColumns: selectedLayoutType.id === '1xN' ? '1fr' : selectedLayoutType.id === 'Nx1' ? `repeat(${selectedShots}, 1fr)` : `repeat(2, 1fr)`, gap: '14px', width: selectedLayoutType.id === 'Nx1' ? `${selectedShots * 200}px` : '100%' }}>
-                    {capturedPhotos.map((p, i) => (<div key={i} className="bg-neutral-200 aspect-[3/4] overflow-hidden rounded-sm relative shadow-sm"><img src={p} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }} /></div>))}
+                  <div className="relative z-10 w-full" style={{ display: 'grid', gridTemplateColumns: selectedLayoutType.id === '1xN' ? '1fr' : selectedLayoutType.id === 'Nx1' ? `repeat(4, 1fr)` : `repeat(2, 1fr)`, gap: '14px', width: selectedLayoutType.id === 'Nx1' ? `800px` : '100%' }}>
+                    {selectedPhotosForLayout.map((p, i) => (<div key={i} className="bg-neutral-200 aspect-[3/4] overflow-hidden rounded-sm relative shadow-sm"><img src={p} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }} /></div>))}
                   </div>
-                  <div className={`mt-12 pt-8 border-t ${selectedFrame.id === 'black' ? 'border-white/10' : 'border-black/5'} flex flex-col items-center gap-4 relative z-20 ${selectedLayoutType.id === 'Nx1' ? 'hidden' : 'flex'}`}>
-                     <p className={`text-[12px] font-black tracking-widest italic uppercase ${selectedFrame.id === 'black' ? 'text-white/20' : 'text-black/20'}`}>신림 네컷</p>
+                  <div className={`mt-12 pt-8 border-t ${selectedFrame.id === 'black' ? 'border-white/10' : 'border-black/5'} flex flex-col items-center gap-2 relative z-20 ${selectedLayoutType.id === 'Nx1' ? 'hidden' : 'flex'}`}>
+                     <p className={`text-[20px] font-black tracking-widest italic uppercase ${selectedFrame.id === 'black' ? 'text-white/40' : 'text-black/40'}`}>신림 네컷</p>
                      <p className={`text-[14px] font-serif italic ${selectedFrame.id === 'black' ? 'text-white/40' : 'text-black/40'}`}>{new Date().toLocaleDateString('ko-KR')}</p>
                   </div>
                 </div>
@@ -363,7 +464,7 @@ function App() {
 
               <div className="flex-1 flex flex-col gap-8 w-full max-w-[360px] p-8 bg-white/60 backdrop-blur-2xl rounded-[50px] border border-neutral-100 shadow-2xl overflow-y-auto custom-scrollbar max-h-full">
                   <div className="flex flex-col gap-4">
-                     <h4 className="text-[13px] font-black text-indigo-700 italic flex items-center gap-2">프레임 선택</h4>
+                     <h4 className="text-[13px] font-black text-indigo-700 italic flex items-center gap-2"><span className="bg-indigo-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]">1</span> 프레임 선택</h4>
                      <div className="grid grid-cols-4 gap-3">
                         {INITIAL_FRAMES.map((f)=>(
                           <button key={f.id} onClick={()=>setSelectedFrame(f)} className={`aspect-square rounded-2xl border-2 transition-all relative overflow-hidden flex-shrink-0 ${selectedFrame.id === f.id ? 'border-indigo-600 scale-110 shadow-lg z-10' : 'border-neutral-50 hover:bg-white'}`}>
@@ -388,7 +489,7 @@ function App() {
                   </div>
 
                   <div className="flex flex-col gap-4">
-                     <h4 className="text-[13px] font-black text-rose-500 italic flex items-center gap-2">필터 무드</h4>
+                     <h4 className="text-[13px] font-black text-rose-500 italic flex items-center gap-2"><span className="bg-rose-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]">2</span> 필터 무드</h4>
                      <div className="grid grid-cols-3 gap-3">
                         {FILTERS.map((f)=>(
                           <button key={f.id} onClick={()=>setActiveFilter(f)} className={`aspect-square rounded-2xl border-2 transition-all overflow-hidden ${activeFilter.id === f.id ? 'border-rose-400 scale-110 shadow-lg z-10' : 'border-neutral-50 hover:bg-white'}`}>
@@ -401,8 +502,8 @@ function App() {
                   <button onClick={saveImage} className="w-full py-8 bg-neutral-900 text-white rounded-[40px] font-black text-2xl flex items-center justify-center gap-4 shadow-2xl hover:bg-black active:scale-95 transition-all">저장하기</button>
                   
                   <div className="flex gap-4">
-                    <button onClick={() => setShowQR(true)} className={`flex-1 py-5 rounded-[25px] font-black text-sm transition-all border-2 bg-white border-neutral-100 text-neutral-400`}>QR 공유</button>
-                    <button onClick={() => { setCapturedPhotos([]); setStep(STEPS.LAYOUT); setSubStep(0); setCountdown(null); }} className="flex-1 py-5 border-2 border-neutral-100 bg-white text-neutral-400 rounded-[25px] font-black text-sm hover:bg-neutral-50 shadow-sm">처음으로</button>
+                    <button onClick={shareQRImage} className={`flex-1 py-5 rounded-[25px] font-black text-sm transition-all border-2 bg-white border-neutral-100 text-neutral-400 hover:bg-neutral-50 active:scale-95`}>QR 공유</button>
+                    <button onClick={() => { setCapturedPhotos([]); setSelectedPhotosForLayout([]); setStep(STEPS.LAYOUT); setSubStep(0); setCountdown(null); setQrUrl(''); }} className="flex-1 py-5 border-2 border-neutral-100 bg-white text-neutral-400 rounded-[25px] font-black text-sm hover:bg-neutral-50 shadow-sm active:scale-95">처음으로</button>
                   </div>
               </div>
 
@@ -414,7 +515,7 @@ function App() {
                         <button onClick={() => setShowQR(false)} className="absolute top-6 right-6 p-3 rounded-full hover:bg-neutral-50 transition-colors text-neutral-300"><X size={28} /></button>
                         <h4 className="text-xl font-black italic tracking-tighter text-neutral-800">신림 네컷</h4>
                         <div className="p-6 bg-neutral-50 rounded-[40px] shadow-inner ring-1 ring-neutral-100">
-                          <QRCodeSVG value={window.location.href} size={220} />
+                          <QRCodeSVG value={qrUrl || window.location.href} size={220} />
                         </div>
                         <div className="flex flex-col gap-2">
                           <p className="text-lg font-black text-neutral-800">스캔하여 저장하세요</p>
