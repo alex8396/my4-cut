@@ -1,8 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import html2canvas from 'html2canvas';
-import { Camera, Download, Layout, Columns, Grid, Clock, Zap, Image as ImageIcon, ChevronRight, ChevronLeft, QrCode, Wand2, Plus, Trash2, Home, Save, Star, X } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import { Camera, Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, X, Video } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STEPS = {
@@ -29,7 +28,6 @@ const LAYOUT_TYPES = [
     )
   }
 ];
-
 
 const INITIAL_FRAMES = [
   { id: 'white', name: '화이트', hex: '#ffffff' },
@@ -66,7 +64,7 @@ function App() {
   const [step, setStep] = useState(STEPS.LAYOUT);
   const [subStep, setSubStep] = useState(0); 
   const [selectedShots, setSelectedShots] = useState(SHOT_OPTIONS[0]);
-  const [selectedLayoutType, setSelectedLayoutType] = useState(LAYOUT_TYPES[0]);
+  const [selectedLayoutType] = useState(LAYOUT_TYPES[0]);
   const [activeFilter, setActiveFilter] = useState(FILTERS[0]);
   const [selectedFrame, setSelectedFrame] = useState(INITIAL_FRAMES[0]); 
   const [timerSeconds] = useState(4); 
@@ -74,26 +72,33 @@ function App() {
   const [customFrames, setCustomFrames] = useState([]);
   const [capturedPhotos, setCapturedPhotos] = useState([]);
   const [countdown, setCountdown] = useState(null);
-  const [showQR, setShowQR] = useState(false);
   const [selectedPhotosForLayout, setSelectedPhotosForLayout] = useState([]);
-  const [qrUrl, setQrUrl] = useState('');
-  const [qrError, setQrError] = useState(false);
-  const [downloadPageImage, setDownloadPageImage] = useState(null);
-  const [isDownloadPage, setIsDownloadPage] = useState(false);
   const [resultPhase, setResultPhase] = useState('frame');
+
+  // Video recording state
+  const [recordedVideoUrl, setRecordedVideoUrl] = useState(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
 
   const webcamRef = useRef(null);
   const isCapturing = useRef(false);
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
 
+  // Download page handling (kept for backward compat)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const dlId = params.get('download');
     if (dlId) {
-      setIsDownloadPage(true);
       fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/shared/${dlId}`)
         .then(res => res.json())
         .then(data => {
-          if (data.success) setDownloadPageImage(data.image);
+          if (data.success) {
+            const a = document.createElement('a');
+            a.href = data.image;
+            a.download = `shillim-4cut-${Date.now()}.png`;
+            a.click();
+          }
         })
         .catch(err => console.error('Failed to load shared photo', err));
     }
@@ -117,6 +122,47 @@ function App() {
     fetchFrames();
   }, []);
 
+  // Start MediaRecorder when CAMERA step begins
+  useEffect(() => {
+    if (step === STEPS.CAMERA) {
+      recordedChunksRef.current = [];
+      setRecordedVideoUrl(null);
+
+      // Wait for webcam stream to be ready
+      const tryRecord = () => {
+        const stream = webcamRef.current?.video?.srcObject;
+        if (stream) {
+          const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+            ? 'video/webm;codecs=vp9'
+            : 'video/webm';
+          const recorder = new MediaRecorder(stream, { mimeType });
+          recorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) {
+              recordedChunksRef.current.push(e.data);
+            }
+          };
+          recorder.onstop = () => {
+            const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+            setRecordedVideoUrl(URL.createObjectURL(blob));
+          };
+          recorder.start(100);
+          mediaRecorderRef.current = recorder;
+          setIsRecording(true);
+        } else {
+          // Retry after webcam loads
+          setTimeout(tryRecord, 500);
+        }
+      };
+      setTimeout(tryRecord, 1000);
+    } else {
+      // Stop recording when leaving camera step
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+        setIsRecording(false);
+      }
+    }
+  }, [step]);
+
   const increaseTimer = () => {
     if (countdown !== null) {
       setCountdown(prev => prev + 2);
@@ -132,13 +178,7 @@ function App() {
         setCountdown((prev) => prev - 1);
       }, 1000);
     } else if (countdown === 0 && !isCapturing.current) {
-      isCapturing.current = true;
-      const imageSrc = webcamRef.current.getScreenshot();
-      if (imageSrc) {
-        setCapturedPhotos((prev) => [...prev, imageSrc]);
-      }
-      setCountdown(null);
-      isCapturing.current = false;
+      handleSnap();
     }
     return () => clearInterval(interval);
   }, [countdown]);
@@ -182,48 +222,6 @@ function App() {
     });
   };
 
-  const shareQRImage = async () => {
-    const element = document.getElementById('final-result');
-    if (!element) return;
-    
-    setShowQR(true);
-    setQrUrl('');
-    setQrError(false);
-
-    let dataUrl = null;
-    try {
-      const canvas = await html2canvas(element, { 
-        useCORS: true, 
-        allowTaint: true, 
-        scale: 2, 
-        backgroundColor: '#ffffff' 
-      });
-      dataUrl = canvas.toDataURL('image/png');
-    } catch (err) {
-      console.error('Canvas capture failed:', err);
-      setQrError(true);
-      return;
-    }
-
-    // Canvas succeeded — now try to upload to backend
-    const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
-    try {
-      const res = await fetch(`${BACKEND}/api/shared`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl })
-      });
-      if (!res.ok) throw new Error('Backend error');
-      const data = await res.json();
-      setQrUrl(`${window.location.origin}/?download=${data.id}`);
-    } catch (err) {
-      console.error('Backend upload failed, offering direct download:', err);
-      // Backend failed — store image in state so user can still download directly
-      setQrUrl('__local__');
-      setDownloadPageImage(dataUrl);
-    }
-  };
-
   const saveImage = async () => {
     const element = document.getElementById('final-result');
     if (!element) return;
@@ -233,6 +231,14 @@ function App() {
     link.download = `shillim-4cut-${Date.now()}.png`;
     link.href = dataUrl;
     link.click();
+  };
+
+  const saveVideo = () => {
+    if (!recordedVideoUrl) return;
+    const a = document.createElement('a');
+    a.href = recordedVideoUrl;
+    a.download = `shillim-4cut-video-${Date.now()}.webm`;
+    a.click();
   };
 
   const handleFrameUpload = (e) => {
@@ -257,16 +263,13 @@ function App() {
             const data = await res.json();
             setCustomFrames(prev => prev.map(f => f.id === tempId ? data.frame : f));
             setSelectedFrame(data.frame);
-            return;
           }
         } catch (err) {
           console.error('Failed to save to backend', err);
+          const savedFrames = JSON.parse(localStorage.getItem('pickmem-custom-frames') || '[]');
+          savedFrames.unshift(optimisticFrame);
+          localStorage.setItem('pickmem-custom-frames', JSON.stringify(savedFrames));
         }
-        
-        // Fallback
-        const savedFrames = JSON.parse(localStorage.getItem('pickmem-custom-frames') || '[]');
-        const updatedFrames = [optimisticFrame, ...savedFrames];
-        localStorage.setItem('pickmem-custom-frames', JSON.stringify(updatedFrames));
       };
       reader.readAsDataURL(file);
     }
@@ -304,67 +307,34 @@ function App() {
              </div>
           </motion.div>
         );
-      case 1:
-        return (
-          <motion.div key="sub1" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center flex-1">
-             <h3 className="text-3xl font-black mb-10 tracking-tight text-neutral-800 text-center">배치를 골라주세요</h3>
-             <div className="grid grid-cols-3 gap-8 w-full max-w-lg">
-                {LAYOUT_TYPES.map((l) => (
-                  <button 
-                    key={l.id} onClick={() => { setSelectedLayoutType(l); setStep(STEPS.CAMERA); }}
-                    className={`aspect-square rounded-[40px] transition-all border-4 flex flex-col items-center justify-center gap-6 ${selectedLayoutType.id === l.id ? 'border-indigo-600 bg-white shadow-xl scale-110' : 'border-neutral-100 bg-neutral-50 text-neutral-300 hover:bg-white'}`}
-                  >
-                    <div className={`${selectedLayoutType.id === l.id ? 'text-indigo-600' : 'text-neutral-200'}`}>
-                      {l.renderIcon()}
-                    </div>
-                    <span className="font-black text-lg">{l.name}</span>
-                  </button>
-                ))}
-             </div>
-             <button onClick={() => setSubStep(0)} className="mt-16 text-neutral-400 font-bold flex items-center gap-2 hover:text-neutral-800 text-[11px] uppercase tracking-widest"><ChevronLeft size={16} /> 이전으로</button>
-          </motion.div>
-        );
       default: return null;
     }
   };
 
-  if (isDownloadPage) {
-    return (
-      <div className="h-screen bg-neutral-900 flex flex-col items-center justify-center p-6 text-center">
-        <h1 className="text-white text-4xl font-black italic mb-8 tracking-tighter">신림 네컷</h1>
-        {downloadPageImage ? (
-          <div className="flex flex-col items-center gap-8 w-full max-w-sm">
-            <img src={downloadPageImage} className="w-full rounded-sm shadow-2xl" />
-            <a href={downloadPageImage} download={`shillim-4cut-${Date.now()}.png`} className="w-full bg-indigo-600 py-5 rounded-full text-white font-black text-xl hover:bg-indigo-700 active:scale-95 transition-all shadow-xl">
-              기기에 이미지 저장하기
-            </a>
-            <p className="text-neutral-400 text-sm font-bold">
-              버튼이 작동하지 않으면<br/>사진을 길게 눌러 직접 저장해주세요.
-            </p>
-          </div>
-        ) : (
-           <div className="flex flex-col items-center gap-4 text-white">
-             <div className="w-12 h-12 border-4 border-t-indigo-500 rounded-full animate-spin" />
-             <p className="font-bold">사진을 불러오는 중...</p>
-           </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="h-screen bg-[#fdfcfb] font-sans text-neutral-900 overflow-hidden flex flex-col selection:bg-indigo-100">
       <header className="p-6 flex justify-between items-center bg-white/80 backdrop-blur-xl border-b border-neutral-50 flex-shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-neutral-900 rounded-xl flex items-center justify-center shadow-lg"><Star className="text-white w-7 h-7 fill-white" /></div>
-          <h1 className="text-2xl font-black italic tracking-tighter">신림 네컷</h1>
+        <button onClick={() => { setCapturedPhotos([]); setSelectedPhotosForLayout([]); setStep(STEPS.LAYOUT); setSubStep(0); setCountdown(null); setResultPhase('frame'); setRecordedVideoUrl(null); }} className="flex items-center gap-3 group">
+          <span className="text-3xl font-black italic tracking-tighter bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">신림 네컷</span>
+        </button>
+        <div className="flex items-center gap-3">
+          {step === STEPS.RESULT && recordedVideoUrl && (
+            <button onClick={() => setShowVideo(v => !v)} className="flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-indigo-100 bg-white text-indigo-600 font-black text-sm hover:bg-indigo-50 transition-all shadow-sm">
+              <Video size={16} /> {showVideo ? '사진 보기' : '동영상 보기'}
+            </button>
+          )}
         </div>
-        <div className="flex flex-col items-end gap-2">{[0, 1, 2, 3].map((s) => (<div key={s} className={`h-2 rounded-full transition-all duration-700 ${step >= s ? 'bg-indigo-600 w-12' : 'bg-neutral-100 w-2.5'}`} />))}</div>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center p-4 overflow-hidden relative">
+      <main className="flex-1 overflow-hidden relative">
         <AnimatePresence mode="wait">
-          {step === STEPS.LAYOUT && (<motion.div key="layout" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }} className="flex flex-col items-center w-full h-full justify-center">{renderWizardSubStep()}</motion.div>)}
+          {step === STEPS.LAYOUT && (
+            <motion.div key="layout" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center h-full p-8 gap-12">
+              <AnimatePresence mode="wait">
+                {renderWizardSubStep()}
+              </AnimatePresence>
+            </motion.div>
+          )}
 
           {step === STEPS.CAMERA && (
             <motion.div key="camera" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center h-full w-full justify-center p-2 text-center">
@@ -377,7 +347,16 @@ function App() {
                   </div>
                 </div>
                 {countdown !== null && (<motion.div initial={{ scale: 3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="absolute inset-0 flex items-center justify-center bg-black/0 z-20"><span className="text-[200px] font-black text-white drop-shadow-2xl italic">{countdown}</span></motion.div>)}
-                <div className="absolute top-10 left-10 flex items-center gap-4 z-30"><div className="bg-rose-500 text-white px-6 py-3 rounded-full text-[12px] font-black tracking-widest flex items-center gap-3 animate-pulse shadow-xl"><div className="w-3 h-3 bg-white rounded-full" /> {capturedPhotos.length}/{selectedShots} 완료</div></div>
+                <div className="absolute top-10 left-10 flex items-center gap-4 z-30">
+                  <div className="bg-rose-500 text-white px-6 py-3 rounded-full text-[12px] font-black tracking-widest flex items-center gap-3 animate-pulse shadow-xl">
+                    <div className="w-3 h-3 bg-white rounded-full" /> {capturedPhotos.length}/{selectedShots} 완료
+                  </div>
+                  {isRecording && (
+                    <div className="bg-red-600 text-white px-4 py-3 rounded-full text-[11px] font-black tracking-widest flex items-center gap-2 shadow-xl">
+                      <div className="w-2.5 h-2.5 bg-white rounded-full animate-ping" /> REC
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="mt-12 flex gap-8 w-full max-w-xl items-center px-6">
                   <div className="flex-1 bg-white p-7 rounded-[40px] border-2 border-neutral-50 flex items-center justify-between px-10 shadow-sm">
@@ -438,22 +417,50 @@ function App() {
           {step === STEPS.RESULT && (
             <motion.div key="result" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col md:flex-row gap-16 items-center justify-center h-full w-full overflow-hidden p-6 relative">
               <div className="flex-[1.5] flex flex-col items-center overflow-y-auto w-full h-full p-4 relative custom-scrollbar">
-                <div id="final-result" className={`p-10 shadow-2xl relative overflow-hidden flex-shrink-0 transition-colors duration-500`} style={{ width: selectedLayoutType.id === 'Nx1' ? 'auto' : '340px', display: 'flex', flexDirection: selectedLayoutType.id === 'Nx1' ? 'row' : 'column', gap: '14px', backgroundColor: selectedFrame.hex || '#ffffff' }}>
-                  <div className="absolute inset-0 z-0 pointer-events-none">
-                    {selectedFrame?.image && <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />}
-                    {selectedFrame?.gradient && <div className={`w-full h-full bg-gradient-to-br ${selectedFrame.gradient} opacity-80`} />}
+                {showVideo && recordedVideoUrl ? (
+                  /* ─── 동영상 뷰 ─── */
+                  <div className="flex flex-col items-center gap-6 w-full max-w-sm">
+                    <div className="relative rounded-[30px] overflow-hidden shadow-2xl border-8 border-white ring-1 ring-neutral-100 w-full" style={{ backgroundColor: selectedFrame.hex || '#ffffff' }}>
+                      {selectedFrame.image && (
+                        <img src={selectedFrame.image} className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-multiply pointer-events-none z-10" />
+                      )}
+                      <video
+                        src={recordedVideoUrl}
+                        className="w-full relative z-0"
+                        controls
+                        autoPlay
+                        loop
+                        playsInline
+                        style={{ filter: activeFilter.filter }}
+                      />
+                      <div className="relative z-20 py-4 flex flex-col items-center gap-1" style={{ backgroundColor: selectedFrame.hex || '#ffffff' }}>
+                        <p className={`text-[20px] font-black tracking-widest italic uppercase ${selectedFrame.id === 'black' ? 'text-white/40' : 'text-black/40'}`}>신림 네컷</p>
+                        <p className={`text-[13px] font-serif italic ${selectedFrame.id === 'black' ? 'text-white/30' : 'text-black/30'}`}>{new Date().toLocaleDateString('ko-KR')}</p>
+                      </div>
+                    </div>
+                    <button onClick={saveVideo} className="w-full py-5 bg-violet-600 text-white rounded-[40px] font-black text-xl flex items-center justify-center gap-3 shadow-xl hover:bg-violet-700 active:scale-95 transition-all">
+                      <Download size={22} /> 동영상 저장
+                    </button>
                   </div>
-                  <div className="relative z-10 w-full" style={{ display: 'grid', gridTemplateColumns: selectedLayoutType.id === '1xN' ? '1fr' : selectedLayoutType.id === 'Nx1' ? `repeat(4, 1fr)` : `repeat(2, 1fr)`, gap: '14px', width: selectedLayoutType.id === 'Nx1' ? `800px` : '100%' }}>
-                    {selectedPhotosForLayout.map((p, i) => (<div key={i} className="bg-neutral-200 aspect-[3/4] overflow-hidden rounded-sm relative shadow-sm"><img src={p} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }} /></div>))}
+                ) : (
+                  /* ─── 사진 프레임 뷰 ─── */
+                  <div id="final-result" className={`p-10 shadow-2xl relative overflow-hidden flex-shrink-0 transition-colors duration-500`} style={{ width: '340px', display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: selectedFrame.hex || '#ffffff' }}>
+                    <div className="absolute inset-0 z-0 pointer-events-none">
+                      {selectedFrame?.image && <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />}
+                      {selectedFrame?.gradient && <div className={`w-full h-full bg-gradient-to-br ${selectedFrame.gradient} opacity-80`} />}
+                    </div>
+                    <div className="relative z-10 w-full" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
+                      {selectedPhotosForLayout.map((p, i) => (<div key={i} className="bg-neutral-200 aspect-[3/4] overflow-hidden rounded-sm relative shadow-sm"><img src={p} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }} /></div>))}
+                    </div>
+                    <div className={`mt-12 pt-8 border-t ${selectedFrame.id === 'black' ? 'border-white/10' : 'border-black/5'} flex flex-col items-center gap-2 relative z-20`}>
+                       <p className={`text-[20px] font-black tracking-widest italic uppercase ${selectedFrame.id === 'black' ? 'text-white/40' : 'text-black/40'}`}>신림 네컷</p>
+                       <p className={`text-[14px] font-serif italic ${selectedFrame.id === 'black' ? 'text-white/40' : 'text-black/40'}`}>{new Date().toLocaleDateString('ko-KR')}</p>
+                    </div>
                   </div>
-                  <div className={`mt-12 pt-8 border-t ${selectedFrame.id === 'black' ? 'border-white/10' : 'border-black/5'} flex flex-col items-center gap-2 relative z-20 ${selectedLayoutType.id === 'Nx1' ? 'hidden' : 'flex'}`}>
-                     <p className={`text-[20px] font-black tracking-widest italic uppercase ${selectedFrame.id === 'black' ? 'text-white/40' : 'text-black/40'}`}>신림 네컷</p>
-                     <p className={`text-[14px] font-serif italic ${selectedFrame.id === 'black' ? 'text-white/40' : 'text-black/40'}`}>{new Date().toLocaleDateString('ko-KR')}</p>
-                  </div>
-                </div>
+                )}
               </div>
 
-              <div className="flex-1 flex flex-col gap-8 w-full max-w-[360px] p-8 bg-white/60 backdrop-blur-2xl rounded-[50px] border border-neutral-100 shadow-2xl overflow-y-auto custom-scrollbar max-h-full">
+              <div className="flex-1 flex flex-col gap-6 w-full max-w-[360px] p-8 bg-white/60 backdrop-blur-2xl rounded-[50px] border border-neutral-100 shadow-2xl overflow-y-auto custom-scrollbar max-h-full">
                   {resultPhase === 'frame' ? (
                     <>
                       <div className="flex flex-col gap-4">
@@ -480,82 +487,27 @@ function App() {
                             </label>
                          </div>
                       </div>
-                      <button onClick={() => setResultPhase('filter')} className="w-full py-8 mt-6 bg-indigo-600 text-white rounded-[40px] font-black text-2xl flex items-center justify-center gap-4 shadow-xl hover:bg-indigo-700 active:scale-95 transition-all">다음: 필터 고르기 <ChevronRight size={28} /></button>
+                      <button onClick={() => setResultPhase('filter')} className="w-full py-6 mt-2 bg-indigo-600 text-white rounded-[40px] font-black text-xl flex items-center justify-center gap-4 shadow-xl hover:bg-indigo-700 active:scale-95 transition-all">다음: 필터 고르기 <ChevronRight size={24} /></button>
                     </>
                   ) : (
                     <>
-                      <button onClick={() => setResultPhase('frame')} className="text-sm text-neutral-400 font-bold mb-2 flex items-center gap-1 hover:text-neutral-800 transition-colors"><ChevronLeft size={16}/> 프레임 다시 고르기</button>
+                      <button onClick={() => setResultPhase('frame')} className="text-sm text-neutral-400 font-bold flex items-center gap-1 hover:text-neutral-800 transition-colors"><ChevronLeft size={16}/> 프레임 다시 고르기</button>
                       <div className="flex flex-col gap-4">
                          <h4 className="text-[13px] font-black text-rose-500 italic flex items-center gap-2"><span className="bg-rose-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]">2</span> 필터 무드</h4>
                          <div className="grid grid-cols-3 gap-3">
                             {FILTERS.map((f)=>(
                               <button key={f.id} onClick={()=>setActiveFilter(f)} className={`aspect-square rounded-2xl border-2 transition-all overflow-hidden ${activeFilter.id === f.id ? 'border-rose-400 scale-110 shadow-lg z-10' : 'border-neutral-50 hover:bg-white'}`}>
-                                 <div className="w-full h-full" style={{ filter: f.filter }}><img src={capturedPhotos[0]} className="w-full h-full object-cover" /></div>
+                                 <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1" style={{ filter: f.filter }}><img src={capturedPhotos[0]} className="w-full rounded-lg" /></div>
                               </button>
                             ))}
                          </div>
                       </div>
-                      <button onClick={saveImage} className="w-full py-8 mt-6 bg-neutral-900 text-white rounded-[40px] font-black text-2xl flex items-center justify-center gap-4 shadow-2xl hover:bg-black active:scale-95 transition-all">저장하기</button>
+                      <button onClick={saveImage} className="w-full py-6 mt-2 bg-neutral-900 text-white rounded-[40px] font-black text-2xl flex items-center justify-center gap-4 shadow-2xl hover:bg-black active:scale-95 transition-all">저장하기</button>
                     </>
                   )}
-                  
-                  <div className="flex gap-4">
-                    <button onClick={shareQRImage} className={`flex-1 py-5 rounded-[25px] font-black text-sm transition-all border-2 bg-white border-neutral-100 text-neutral-400 hover:bg-neutral-50 active:scale-95`}>QR 공유</button>
-                    <button onClick={() => { setCapturedPhotos([]); setSelectedPhotosForLayout([]); setStep(STEPS.LAYOUT); setSubStep(0); setCountdown(null); setQrUrl(''); }} className="flex-1 py-5 border-2 border-neutral-100 bg-white text-neutral-400 rounded-[25px] font-black text-sm hover:bg-neutral-50 shadow-sm active:scale-95">처음으로</button>
-                  </div>
+                   
+                  <button onClick={() => { setCapturedPhotos([]); setSelectedPhotosForLayout([]); setStep(STEPS.LAYOUT); setSubStep(0); setCountdown(null); setResultPhase('frame'); setRecordedVideoUrl(null); }} className="w-full py-4 border-2 border-neutral-100 bg-white text-neutral-400 rounded-[30px] font-black text-sm hover:bg-neutral-50 shadow-sm active:scale-95">처음으로</button>
               </div>
-
-              {/* QR Modal Popup */}
-              <AnimatePresence>
-                {showQR && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm" onClick={() => setShowQR(false)}>
-                    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-white p-10 rounded-[60px] shadow-3xl flex flex-col items-center gap-8 text-center relative max-w-sm w-full border border-neutral-50">
-                        <button onClick={() => setShowQR(false)} className="absolute top-6 right-6 p-3 rounded-full hover:bg-neutral-50 transition-colors text-neutral-300"><X size={28} /></button>
-                        <h4 className="text-xl font-black italic tracking-tighter text-neutral-800">신림 네컷</h4>
-                        <div className="p-6 bg-neutral-50 rounded-[40px] shadow-inner ring-1 ring-neutral-100 flex items-center justify-center min-h-[268px]">
-                          {qrError ? (
-                            <div className="w-[220px] flex flex-col items-center justify-center text-center gap-4">
-                              <span className="text-4xl">⚠️</span>
-                              <p className="font-black text-neutral-700 text-sm">캡처 실패</p>
-                              <p className="text-neutral-400 text-xs">다시 시도해주세요.</p>
-                              <button onClick={() => { setShowQR(false); setQrError(false); setTimeout(shareQRImage, 300); }} className="px-5 py-2 bg-indigo-600 text-white rounded-full font-black text-sm hover:bg-indigo-700 active:scale-95 transition-all">다시 시도</button>
-                            </div>
-                          ) : qrUrl === '__local__' ? (
-                            <div className="w-[220px] flex flex-col items-center justify-center text-center gap-4">
-                              <span className="text-5xl">📱</span>
-                              <p className="font-black text-neutral-700 text-sm">서버 미연결 상태</p>
-                              <p className="text-neutral-400 text-xs">아래 버튼으로 이 기기에 직접 저장하세요.<br/>다른 기기로 전송하려면 Render 백엔드를 연결해야 합니다.</p>
-                              <a href={downloadPageImage} download={`shillim-4cut-${Date.now()}.png`} className="px-5 py-2 bg-indigo-600 text-white rounded-full font-black text-sm hover:bg-indigo-700 active:scale-95 transition-all">이 기기에 저장</a>
-                            </div>
-                          ) : qrUrl === '' ? (
-                            <div className="w-[220px] h-[220px] flex flex-col items-center justify-center text-neutral-400 gap-4">
-                              <div className="w-10 h-10 border-4 border-t-indigo-500 rounded-full animate-spin" />
-                              <span className="font-bold text-sm">이미지 업로드 중...</span>
-                            </div>
-                          ) : (
-                            <img 
-                              src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrUrl)}&margin=10`} 
-                              alt="QR Code" 
-                              className="w-[220px] h-[220px] rounded-lg"
-                              onError={() => setQrError(true)}
-                            />
-                          )}
-                        </div>
-                        {qrUrl && qrUrl !== '' && qrUrl !== '__local__' && !qrError && (
-                          <div className="flex flex-col gap-2 w-full">
-                            <p className="text-lg font-black text-neutral-800">스캔하여 저장하세요</p>
-                            <p className="text-sm font-medium text-neutral-400">QR 코드를 스캔하면 기기로 바로 다운로드 됩니다</p>
-                            <button onClick={() => navigator.clipboard.writeText(qrUrl).then(() => alert('링크가 복사되었습니다!'))} className="mt-1 px-4 py-2 bg-neutral-100 text-neutral-600 rounded-full font-bold text-xs hover:bg-neutral-200 transition-colors">링크 복사</button>
-                          </div>
-                        )}
-                        {(qrUrl === '' && !qrError) && (
-                          <p className="text-sm font-medium text-neutral-400">이미지를 서버에 저장하는 중입니다...</p>
-                        )}
-
-                    </motion.div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>
