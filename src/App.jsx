@@ -77,6 +77,7 @@ function App() {
   const [showQR, setShowQR] = useState(false);
   const [selectedPhotosForLayout, setSelectedPhotosForLayout] = useState([]);
   const [qrUrl, setQrUrl] = useState('');
+  const [qrError, setQrError] = useState(false);
   const [downloadPageImage, setDownloadPageImage] = useState(null);
   const [isDownloadPage, setIsDownloadPage] = useState(false);
   const [resultPhase, setResultPhase] = useState('frame');
@@ -187,26 +188,39 @@ function App() {
     
     setShowQR(true);
     setQrUrl('');
+    setQrError(false);
 
+    let dataUrl = null;
     try {
-      const canvas = await html2canvas(element, { useCORS: true, scale: 2, backgroundColor: null });
-      const dataUrl = canvas.toDataURL('image/png');
-      
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/shared`, {
+      const canvas = await html2canvas(element, { 
+        useCORS: true, 
+        allowTaint: true, 
+        scale: 2, 
+        backgroundColor: '#ffffff' 
+      });
+      dataUrl = canvas.toDataURL('image/png');
+    } catch (err) {
+      console.error('Canvas capture failed:', err);
+      setQrError(true);
+      return;
+    }
+
+    // Canvas succeeded — now try to upload to backend
+    const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+    try {
+      const res = await fetch(`${BACKEND}/api/shared`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: dataUrl })
       });
-      if (res.ok) {
-        const data = await res.json();
-        setQrUrl(`${window.location.origin}/?download=${data.id}`);
-      } else {
-        throw new Error('Backend responded with non-ok status');
-      }
+      if (!res.ok) throw new Error('Backend error');
+      const data = await res.json();
+      setQrUrl(`${window.location.origin}/?download=${data.id}`);
     } catch (err) {
-      console.error('QR share failed', err);
-      // Backend failed or canvas failed, fallback to sharing the full site URL
-      setQrUrl(window.location.href);
+      console.error('Backend upload failed, offering direct download:', err);
+      // Backend failed — store image in state so user can still download directly
+      setQrUrl('__local__');
+      setDownloadPageImage(dataUrl);
     }
   };
 
@@ -499,19 +513,45 @@ function App() {
                         <button onClick={() => setShowQR(false)} className="absolute top-6 right-6 p-3 rounded-full hover:bg-neutral-50 transition-colors text-neutral-300"><X size={28} /></button>
                         <h4 className="text-xl font-black italic tracking-tighter text-neutral-800">신림 네컷</h4>
                         <div className="p-6 bg-neutral-50 rounded-[40px] shadow-inner ring-1 ring-neutral-100 flex items-center justify-center min-h-[268px]">
-                          {qrUrl === '' ? (
+                          {qrError ? (
+                            <div className="w-[220px] flex flex-col items-center justify-center text-center gap-4">
+                              <span className="text-4xl">⚠️</span>
+                              <p className="font-black text-neutral-700 text-sm">캡처 실패</p>
+                              <p className="text-neutral-400 text-xs">다시 시도해주세요.</p>
+                              <button onClick={() => { setShowQR(false); setQrError(false); setTimeout(shareQRImage, 300); }} className="px-5 py-2 bg-indigo-600 text-white rounded-full font-black text-sm hover:bg-indigo-700 active:scale-95 transition-all">다시 시도</button>
+                            </div>
+                          ) : qrUrl === '__local__' ? (
+                            <div className="w-[220px] flex flex-col items-center justify-center text-center gap-4">
+                              <span className="text-5xl">📱</span>
+                              <p className="font-black text-neutral-700 text-sm">서버 미연결 상태</p>
+                              <p className="text-neutral-400 text-xs">아래 버튼으로 이 기기에 직접 저장하세요.<br/>다른 기기로 전송하려면 Render 백엔드를 연결해야 합니다.</p>
+                              <a href={downloadPageImage} download={`shillim-4cut-${Date.now()}.png`} className="px-5 py-2 bg-indigo-600 text-white rounded-full font-black text-sm hover:bg-indigo-700 active:scale-95 transition-all">이 기기에 저장</a>
+                            </div>
+                          ) : qrUrl === '' ? (
                             <div className="w-[220px] h-[220px] flex flex-col items-center justify-center text-neutral-400 gap-4">
                               <div className="w-10 h-10 border-4 border-t-indigo-500 rounded-full animate-spin" />
-                              <span className="font-bold text-sm">로딩 중...</span>
+                              <span className="font-bold text-sm">이미지 업로드 중...</span>
                             </div>
                           ) : (
-                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrUrl)}`} alt="QR Code" className="w-[220px] h-[220px] rounded-lg" />
+                            <img 
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrUrl)}&margin=10`} 
+                              alt="QR Code" 
+                              className="w-[220px] h-[220px] rounded-lg"
+                              onError={() => setQrError(true)}
+                            />
                           )}
                         </div>
-                        <div className="flex flex-col gap-2">
-                          <p className="text-lg font-black text-neutral-800">스캔하여 저장하세요</p>
-                          <p className="text-sm font-medium text-neutral-400">QR 코드를 스캔하면 기기로 바로 다운로드 됩니다</p>
-                        </div>
+                        {qrUrl && qrUrl !== '' && qrUrl !== '__local__' && !qrError && (
+                          <div className="flex flex-col gap-2 w-full">
+                            <p className="text-lg font-black text-neutral-800">스캔하여 저장하세요</p>
+                            <p className="text-sm font-medium text-neutral-400">QR 코드를 스캔하면 기기로 바로 다운로드 됩니다</p>
+                            <button onClick={() => navigator.clipboard.writeText(qrUrl).then(() => alert('링크가 복사되었습니다!'))} className="mt-1 px-4 py-2 bg-neutral-100 text-neutral-600 rounded-full font-bold text-xs hover:bg-neutral-200 transition-colors">링크 복사</button>
+                          </div>
+                        )}
+                        {(qrUrl === '' && !qrError) && (
+                          <p className="text-sm font-medium text-neutral-400">이미지를 서버에 저장하는 중입니다...</p>
+                        )}
+
                     </motion.div>
                   </motion.div>
                 )}
