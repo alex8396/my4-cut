@@ -16,19 +16,6 @@ const SHOT_OPTIONS = [4, 6, 8];
 
 const LAYOUT_TYPES = [
   { 
-    id: '1xN', 
-    name: '세로형', 
-    cols: 1,
-    renderIcon: () => (
-      <div className="flex flex-col gap-0.5 w-12 h-12 border-2 border-current rounded-lg p-1.5 opacity-60">
-        <div className="flex-1 bg-current rounded-sm" />
-        <div className="flex-1 bg-current rounded-sm" />
-        <div className="flex-1 bg-current rounded-sm" />
-        <div className="flex-1 bg-current rounded-sm" />
-      </div>
-    )
-  },
-  { 
     id: 'Grid', 
     name: '그리드', 
     cols: 2,
@@ -40,21 +27,9 @@ const LAYOUT_TYPES = [
         <div className="bg-current rounded-sm" />
       </div>
     )
-  },
-  { 
-    id: 'Nx1', 
-    name: '가로형', 
-    rows: 1,
-    renderIcon: () => (
-      <div className="flex gap-0.5 w-12 h-12 border-2 border-current rounded-lg p-1.5 opacity-60">
-        <div className="flex-1 bg-current rounded-sm" />
-        <div className="flex-1 bg-current rounded-sm" />
-        <div className="flex-1 bg-current rounded-sm" />
-        <div className="flex-1 bg-current rounded-sm" />
-      </div>
-    )
-  },
+  }
 ];
+
 
 const INITIAL_FRAMES = [
   { id: 'white', name: '화이트', hex: '#ffffff' },
@@ -69,13 +44,8 @@ const INITIAL_FRAMES = [
   { id: 'purple', name: '퍼플', hex: '#d8b4fe' },
   { id: 'rose', name: '핑크', hex: '#fbcfe8' },
   { id: 'red', name: '레드', hex: '#fca5a5' },
-  { id: 'sea', name: '바다', image: '/frames/ocean_frame.png' },
   { id: 'wave', name: '파도', image: '/frames/wave_frame.jpg' },
   { id: 'beach', name: '해변', image: '/frames/beach_frame.jpg' },
-  { id: 'snow', name: '눈', image: '/frames/snow_frame.jpg' },
-  { id: 'bokeh', name: '보케', image: '/frames/bokeh_frame.jpg' },
-  { id: 'winter', name: '겨울', image: '/frames/winter_frame.jpg' },
-  { id: 'night', name: '야경', image: '/frames/night_frame.jpg' },
   { id: 'flower', name: '꽃', image: '/frames/flower_frame.png' },
   { id: 'aurora', name: '오로라', image: '/frames/aurora_frame.png' },
   { id: 'sunset', name: '노을', image: '/frames/sunset_frame.png' },
@@ -218,10 +188,10 @@ function App() {
     setShowQR(true);
     setQrUrl('');
 
-    const canvas = await html2canvas(element, { useCORS: true, scale: 2, backgroundColor: null });
-    const dataUrl = canvas.toDataURL('image/png');
-    
     try {
+      const canvas = await html2canvas(element, { useCORS: true, scale: 2, backgroundColor: null });
+      const dataUrl = canvas.toDataURL('image/png');
+      
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/shared`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -235,7 +205,7 @@ function App() {
       }
     } catch (err) {
       console.error('QR share failed', err);
-      alert('백엔드 연결 실패: 현재 화면 주소를 공유합니다.');
+      // Backend failed or canvas failed, fallback to sharing the full site URL
       setQrUrl(window.location.href);
     }
   };
@@ -310,7 +280,7 @@ function App() {
              <div className="grid grid-cols-3 gap-8 w-full max-w-lg">
                 {SHOT_OPTIONS.map((num) => (
                   <button 
-                    key={num} onClick={() => { setSelectedShots(num); setSubStep(1); }}
+                    key={num} onClick={() => { setSelectedShots(num); setStep(STEPS.CAMERA); }}
                     className={`aspect-square rounded-[40px] font-black text-5xl transition-all border-4 flex flex-col items-center justify-center gap-2 ${selectedShots === num ? 'border-indigo-600 bg-white text-indigo-600 shadow-2xl scale-110' : 'border-neutral-100 bg-neutral-50 text-neutral-300 hover:bg-white'}`}
                   >
                     <span>{num}</span>
