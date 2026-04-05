@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import html2canvas from 'html2canvas';
-import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Video } from 'lucide-react';
+import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STEPS = { LAYOUT: 0, CAMERA: 1, SELECT: 2, RESULT: 3 };
@@ -56,13 +56,28 @@ function FrameOverlay({ frame }) {
   );
 }
 
-// 네컷 frame label
+// 네컷 frame label — always occupy space to maintain uniform frame size
 function FrameLabel({ frame }) {
+  // Show on all default provided frames (INITIAL_FRAMES)
+  const isInitial = INITIAL_FRAMES.some(f => f.id === frame?.id);
   const dark = frame?.id === 'black';
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const dateStr = `${year}.${month}.${day}`;
+  
   return (
-    <div className={`pt-6 pb-4 border-t ${dark ? 'border-white/10' : 'border-black/5'} flex flex-col items-center gap-1`}>
-      <p className={`text-[18px] font-black tracking-widest italic uppercase ${dark ? 'text-white/40' : 'text-black/40'}`}>신림 네컷</p>
-      <p className={`text-[12px] font-serif italic ${dark ? 'text-white/30' : 'text-black/30'}`}>{new Date().toLocaleDateString('ko-KR')}</p>
+    <div className={`pt-8 pb-10 ${isInitial ? 'border-t' : ''} ${dark ? 'border-white/10' : 'border-black/5'} flex flex-col items-center gap-1.5 min-h-[100px]`}>
+      {isInitial ? (
+        <>
+          <p className={`text-[24px] font-black tracking-[0.1em] italic ${dark ? 'text-white/40' : 'text-black/40'}`}>신림 네컷</p>
+          <p className={`text-[14px] font-serif italic tracking-widest ${dark ? 'text-white/20' : 'text-black/25'}`}>{dateStr}</p>
+        </>
+      ) : (
+        // Empty space to maintain height for custom uploaded frames
+        <div className="h-[55px]" />
+      )}
     </div>
   );
 }
@@ -75,18 +90,12 @@ function App() {
   const [timerSeconds] = useState(4);
   const [customFrames, setCustomFrames] = useState([]);
   const [capturedPhotos, setCapturedPhotos] = useState([]);
-  const [capturedClips, setCapturedClips] = useState([]); // per-shot clips
   const [countdown, setCountdown] = useState(null);
   const [selectedPhotosForLayout, setSelectedPhotosForLayout] = useState([]);
-  const [selectedClipsForLayout, setSelectedClipsForLayout] = useState([]);
   const [resultPhase, setResultPhase] = useState('frame');
-  const [isRecording, setIsRecording] = useState(false);
 
   const webcamRef = useRef(null);
   const isCapturing = useRef(false);
-  const clipRecorderRef = useRef(null);
-  const clipChunksRef = useRef([]);
-  const videoMime = useRef(getVideoMime());
 
   // Fetch custom frames from backend
   useEffect(() => {
@@ -100,31 +109,6 @@ function App() {
     fetchFrames();
   }, []);
 
-  // ── Per-shot clip recording ──
-  const startClipRecording = () => {
-    const stream = webcamRef.current?.video?.srcObject;
-    if (!stream) return;
-    clipChunksRef.current = [];
-    const mime = videoMime.current;
-    const rec = new MediaRecorder(stream, { mimeType: mime });
-    rec.ondataavailable = (e) => { if (e.data.size > 0) clipChunksRef.current.push(e.data); };
-    rec.onstop = () => {
-      const blob = new Blob(clipChunksRef.current, { type: mime });
-      setCapturedClips(prev => [...prev, URL.createObjectURL(blob)]);
-    };
-    rec.start(100);
-    clipRecorderRef.current = rec;
-    setIsRecording(true);
-  };
-
-  const stopClipRecording = () => {
-    setTimeout(() => {
-      if (clipRecorderRef.current?.state !== 'inactive') {
-        clipRecorderRef.current.stop();
-        setIsRecording(false);
-      }
-    }, 600);
-  };
 
   // Countdown timer
   const increaseTimer = () => {
@@ -149,12 +133,6 @@ function App() {
     }
   }, [step, capturedPhotos.length, selectedShots, countdown, timerSeconds]);
 
-  // Start recording when countdown begins
-  useEffect(() => {
-    if (countdown === timerSeconds && countdown !== null) {
-      startClipRecording();
-    }
-  }, [countdown]);
 
   // Move to SELECT when all shots done
   useEffect(() => {
@@ -169,155 +147,39 @@ function App() {
     isCapturing.current = true;
     const imageSrc = webcamRef.current.getScreenshot();
     if (imageSrc) setCapturedPhotos(prev => [...prev, imageSrc]);
-    stopClipRecording();
     setCountdown(null);
     isCapturing.current = false;
   };
 
-  // Photo + clip selection (linked by index)
-  const togglePhotoSelection = (photo, i) => {
-    setSelectedPhotosForLayout(prev => {
-      if (prev.includes(photo)) {
-        const idx = prev.indexOf(photo);
-        setSelectedClipsForLayout(c => c.filter((_, ci) => ci !== idx));
-        return prev.filter(p => p !== photo);
-      }
-      if (prev.length < 4) {
-        setSelectedClipsForLayout(c => [...c, capturedClips[i]]);
-        return [...prev, photo];
-      }
-      return prev;
-    });
+  // Photo selection
+  const togglePhotoSelection = (photo) => {
+    const isSelected = selectedPhotosForLayout.includes(photo);
+    if (isSelected) {
+      setSelectedPhotosForLayout(prev => prev.filter(p => p !== photo));
+    } else if (selectedPhotosForLayout.length < 4) {
+      setSelectedPhotosForLayout(prev => [...prev, photo]);
+    }
   };
 
   const saveImage = async () => {
     const el = document.getElementById('photo-frame-result');
     if (!el) return;
-    const canvas = await html2canvas(el, { useCORS: true, scale: 3, backgroundColor: null });
+    // Scale current 300px width to reach 1080px (3.6x)
+    const canvas = await html2canvas(el, { 
+      useCORS: true, 
+      scale: 3.6, 
+      backgroundColor: null,
+      scrollX: 0,
+      scrollY: -window.scrollY,
+      windowWidth: document.documentElement.offsetWidth,
+      windowHeight: document.documentElement.offsetHeight
+    });
     const a = document.createElement('a');
     a.download = `shillim-4cut-${Date.now()}.png`;
     a.href = canvas.toDataURL('image/png');
     a.click();
   };
 
-  const saveVideoWithFrame = async () => {
-    if (selectedClipsForLayout.length < 4) return;
-
-    // Dimensions matching the displayed video frame (3:4 ratio)
-    const W = 480;
-    const H = 680;
-    const PADDING = 20;
-    const GAP = 10;
-    const cellW = (W - PADDING * 2 - GAP) / 2;
-    const cellH = cellW * (4 / 3);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext('2d');
-
-    // Pre-load frame image
-    let frameImg = null;
-    if (selectedFrame.image) {
-      frameImg = new Image();
-      frameImg.crossOrigin = 'anonymous';
-      await new Promise(resolve => { frameImg.onload = resolve; frameImg.onerror = resolve; frameImg.src = selectedFrame.image; });
-    }
-
-    // Create 4 video elements
-    const videos = selectedClipsForLayout.map(url => {
-      const v = document.createElement('video');
-      v.src = url;
-      v.loop = true;
-      v.muted = true;
-      v.crossOrigin = 'anonymous';
-      return v;
-    });
-    await Promise.all(videos.map(v => new Promise(resolve => { v.onloadeddata = resolve; v.onerror = resolve; v.load(); })));
-    await Promise.all(videos.map(v => v.play().catch(() => {})));
-
-    // Record the canvas stream
-    const mime = videoMime.current;
-    const stream = canvas.captureStream(30);
-    const recorder = new MediaRecorder(stream, { mimeType: mime });
-    const chunks = [];
-    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-
-    const cellPositions = [
-      [PADDING, PADDING],
-      [PADDING + cellW + GAP, PADDING],
-      [PADDING, PADDING + cellH + GAP],
-      [PADDING + cellW + GAP, PADDING + cellH + GAP],
-    ];
-
-    const isDark = selectedFrame.id === 'black';
-
-    let animFrame;
-    const draw = () => {
-      // Background color
-      ctx.fillStyle = selectedFrame.hex || '#ffffff';
-      ctx.fillRect(0, 0, W, H);
-
-      // Frame image overlay
-      if (frameImg) {
-        ctx.globalAlpha = 0.85;
-        ctx.drawImage(frameImg, 0, 0, W, H);
-        ctx.globalAlpha = 1;
-      }
-
-      // Draw 4 clips in 2x2 grid
-      if (activeFilter.filter !== 'none') ctx.filter = activeFilter.filter;
-      videos.forEach((v, i) => {
-        const [x, y] = cellPositions[i];
-        ctx.save();
-        // Rounded rect clip
-        ctx.beginPath();
-        ctx.roundRect(x, y, cellW, cellH, 4);
-        ctx.clip();
-        ctx.drawImage(v, x, y, cellW, cellH);
-        ctx.restore();
-      });
-      ctx.filter = 'none';
-
-      // Bottom label area
-      const labelY = PADDING * 2 + cellH * 2 + GAP + 10;
-      ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(PADDING, labelY); ctx.lineTo(W - PADDING, labelY);
-      ctx.stroke();
-
-      ctx.fillStyle = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)';
-      ctx.font = 'bold italic 22px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('신림 네컷', W / 2, labelY + 28);
-
-      ctx.font = '13px serif';
-      ctx.fillStyle = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)';
-      ctx.fillText(new Date().toLocaleDateString('ko-KR'), W / 2, labelY + 48);
-
-      animFrame = requestAnimationFrame(draw);
-    };
-
-    recorder.start();
-    draw();
-
-    // Record for 6 seconds (length of clips)
-    await new Promise(resolve => setTimeout(resolve, 6000));
-    cancelAnimationFrame(animFrame);
-    videos.forEach(v => v.pause());
-    recorder.stop();
-    await new Promise(resolve => { recorder.onstop = resolve; });
-
-    const ext = getVideoExt(mime);
-    const blob = new Blob(chunks, { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `shillim-4cut-video-${Date.now()}.${ext}`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   const handleFrameUpload = (e) => {
     const file = e.target.files[0];
@@ -351,35 +213,14 @@ function App() {
   };
 
   const resetAll = () => {
-    setCapturedPhotos([]); setCapturedClips([]);
-    setSelectedPhotosForLayout([]); setSelectedClipsForLayout([]);
+    setCapturedPhotos([]);
+    setSelectedPhotosForLayout([]);
     setStep(STEPS.LAYOUT); setCountdown(null); setResultPhase('frame');
   };
 
   return (
     <div className="h-screen bg-[#fdfcfb] font-sans text-neutral-900 overflow-hidden flex flex-col selection:bg-indigo-100">
-      {/* ── Header ── */}
-      <header className="p-6 flex items-center justify-between bg-white/80 backdrop-blur-xl border-b border-neutral-100 flex-shrink-0">
-        <button onClick={resetAll}>
-          <span className="text-3xl font-black italic tracking-tighter bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">
-            신림 네컷
-          </span>
-        </button>
-        {step === STEPS.RESULT && (
-          <div className="flex gap-3">
-            <button onClick={saveImage}
-              className="flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white rounded-full font-black text-sm hover:bg-black active:scale-95 transition-all shadow-lg">
-              <Download size={15} /> 사진 저장
-            </button>
-            {selectedClipsForLayout.length > 0 && (
-              <button onClick={saveVideoWithFrame}
-                className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 text-white rounded-full font-black text-sm hover:bg-violet-700 active:scale-95 transition-all shadow-lg">
-                <Video size={15} /> 동영상 저장 ({getVideoExt(videoMime.current).toUpperCase()})
-              </button>
-            )}
-          </div>
-        )}
-      </header>
+      {/* ── No Header ── */}
 
       <main className="flex-1 overflow-hidden relative">
         <AnimatePresence mode="wait">
@@ -407,7 +248,7 @@ function App() {
           {step === STEPS.CAMERA && (
             <motion.div key="camera" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="flex flex-col items-center h-full w-full justify-center p-2 text-center">
-              <div className="relative w-full max-w-2xl bg-neutral-900 rounded-[60px] overflow-hidden shadow-2xl border-[16px] border-white ring-1 ring-neutral-100 aspect-[3/4] flex-shrink">
+              <div className="relative w-full max-w-xl bg-neutral-900 rounded-[60px] overflow-hidden shadow-2xl border-[16px] border-white ring-1 ring-neutral-100 aspect-[2/3] flex-shrink">
                 <Webcam audio={false} ref={webcamRef} screenshotFormat="image/jpeg" mirrored={true} className="w-full h-full object-cover" />
                 <FrameOverlay frame={selectedFrame} />
                 {countdown !== null && (
@@ -421,11 +262,6 @@ function App() {
                   <div className="bg-rose-500 text-white px-6 py-3 rounded-full text-[12px] font-black tracking-widest flex items-center gap-3 animate-pulse shadow-xl">
                     <div className="w-3 h-3 bg-white rounded-full" /> {capturedPhotos.length}/{selectedShots} 완료
                   </div>
-                  {isRecording && (
-                    <div className="bg-red-600 text-white px-4 py-2.5 rounded-full text-[11px] font-black flex items-center gap-2 shadow-xl">
-                      <div className="w-2 h-2 bg-white rounded-full animate-ping" /> REC
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -457,22 +293,16 @@ function App() {
             <motion.div key="select" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               className="flex flex-col items-center justify-center p-6 h-full w-full">
               <h2 className="text-3xl font-black italic tracking-tighter text-indigo-900 mb-1">순서대로 4장을 선택해주세요</h2>
-              <p className="text-neutral-400 mb-8 font-bold text-sm">{selectedPhotosForLayout.length} / 4 선택됨 · 선택한 순서대로 동영상도 연결됩니다</p>
+              <p className="text-neutral-400 mb-8 font-bold text-sm tracking-tight">{selectedPhotosForLayout.length} / 4 선택됨 · 선택한 순서대로 프레임에 배치됩니다 ✨</p>
 
               <div className="grid grid-cols-4 gap-4 w-full max-w-4xl mb-8 overflow-y-auto max-h-[58vh] p-2">
                 {capturedPhotos.map((photo, i) => {
                   const selIdx = selectedPhotosForLayout.indexOf(photo);
                   const isSel = selIdx !== -1;
                   return (
-                    <button key={i} onClick={() => togglePhotoSelection(photo, i)}
+                    <button key={i} onClick={() => togglePhotoSelection(photo)}
                       className={`relative aspect-[3/4] rounded-2xl overflow-hidden shadow-lg border-4 transition-all ${isSel ? 'border-indigo-600 scale-105' : 'border-white opacity-75 hover:opacity-100'}`}>
                       <img src={photo} className="w-full h-full object-cover" />
-                      {/* Video clip indicator */}
-                      {capturedClips[i] && (
-                        <div className="absolute bottom-2 right-2 bg-black/60 text-white rounded-full px-2 py-0.5 text-[9px] font-black flex items-center gap-1">
-                          <Video size={8} /> 클립
-                        </div>
-                      )}
                       {isSel && (
                         <div className="absolute inset-0 bg-indigo-600/20 flex items-center justify-center">
                           <div className="w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black text-2xl shadow-xl ring-4 ring-white">
@@ -498,53 +328,47 @@ function App() {
           {/* ── RESULT ── */}
           {step === STEPS.RESULT && (
             <motion.div key="result" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-              className="flex flex-row gap-8 items-start justify-center h-full w-full overflow-y-auto p-6">
-
-              {/* ── Photo Frame ── */}
-              <div className="flex flex-col items-center gap-3 flex-shrink-0">
-                <p className="text-[11px] font-black text-neutral-400 uppercase tracking-widest">사진 프레임</p>
-                <div id="photo-frame-result"
-                  className="shadow-2xl relative overflow-hidden flex-shrink-0 transition-colors duration-500"
-                  style={{ width: '240px', display: 'flex', flexDirection: 'column', gap: '10px', padding: '20px', backgroundColor: selectedFrame.hex || '#ffffff' }}>
-                  <div className="absolute inset-0 z-0 pointer-events-none">
-                    {selectedFrame?.image && <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />}
-                  </div>
-                  <div className="relative z-10 grid grid-cols-2 gap-2.5">
-                    {selectedPhotosForLayout.map((p, i) => (
-                      <div key={i} className="aspect-[3/4] overflow-hidden rounded-sm shadow-sm">
-                        <img src={p} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }} />
+              className="flex flex-row items-center justify-center h-full w-full p-6 relative gap-8">
+              
+              <div className="flex-1 flex justify-center items-center h-full">
+                {/* ── Photo Preview (Centered) ── */}
+                <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in duration-700">
+                    <div id="photo-frame-result"
+                      className="shadow-[0_40px_100px_rgba(0,0,0,0.3)] relative overflow-hidden transition-all duration-500 rounded-sm hover:-translate-y-1"
+                      style={{ 
+                        width: '300px', 
+                        aspectRatio: '9/16',
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        padding: '24px 20px', // Matches ~80px top in 1080px width
+                        backgroundColor: selectedFrame.hex || '#ffffff' 
+                      }}>
+                      <div className="absolute inset-0 z-0 pointer-events-none">
+                        {selectedFrame?.image && <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />}
                       </div>
-                    ))}
-                  </div>
-                  <div className="relative z-10">
-                    <FrameLabel frame={selectedFrame} />
-                  </div>
+                      
+                      {/* Photos Grid - Precisely aligned to template placeholder slots */}
+                      <div className="relative z-10 grid grid-cols-2 gap-2 mt-2">
+                        {selectedPhotosForLayout.map((p, i) => (
+                          <div key={i} className="aspect-[2/3] overflow-hidden rounded-[1px] bg-neutral-100 shadow-sm flex items-center justify-center">
+                            <img src={p} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }} />
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Label Area - Positioned precisely where the template text was */}
+                      <div className="relative z-10 mt-auto mb-16">
+                        <FrameLabel frame={selectedFrame} />
+                      </div>
+                    </div>
+                  {resultPhase === 'filter' && (
+                    <button onClick={saveImage}
+                      className="mt-6 w-full py-4 bg-neutral-900 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 hover:bg-black active:scale-95 transition-all shadow-xl animate-in fade-in slide-in-from-top-2">
+                      <Download size={14} /> 이미지 저장
+                    </button>
+                  )}
                 </div>
               </div>
-
-              {/* ── Video Frame ── */}
-              {selectedClipsForLayout.length === 4 && (
-                <div className="flex flex-col items-center gap-3 flex-shrink-0">
-                  <p className="text-[11px] font-black text-neutral-400 uppercase tracking-widest">동영상 프레임</p>
-                  <div className="shadow-2xl relative overflow-hidden flex-shrink-0"
-                    style={{ width: '240px', display: 'flex', flexDirection: 'column', gap: '10px', padding: '20px', backgroundColor: selectedFrame.hex || '#ffffff' }}>
-                    <div className="absolute inset-0 z-0 pointer-events-none">
-                      {selectedFrame?.image && <img src={selectedFrame.image} className="w-full h-full object-cover opacity-80" />}
-                    </div>
-                    <div className="relative z-10 grid grid-cols-2 gap-2.5">
-                      {selectedClipsForLayout.map((clip, i) => (
-                        <div key={i} className="aspect-[3/4] overflow-hidden rounded-sm shadow-sm bg-black">
-                          <video src={clip} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }}
-                            autoPlay loop muted playsInline />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="relative z-10">
-                      <FrameLabel frame={selectedFrame} />
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* ── Controls Panel ── */}
               <div className="flex flex-col gap-5 w-full max-w-[300px] p-6 bg-white/60 backdrop-blur-2xl rounded-[40px] border border-neutral-100 shadow-2xl overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 100px)' }}>
@@ -600,18 +424,8 @@ function App() {
                 )}
 
                 <div className="flex flex-col gap-2 pt-2 border-t border-neutral-100">
-                  <button onClick={saveImage}
-                    className="w-full py-4 bg-neutral-900 text-white rounded-[25px] font-black text-sm flex items-center justify-center gap-2 hover:bg-black active:scale-95 transition-all shadow-md">
-                    <Download size={16} /> 사진 저장
-                  </button>
-                  {selectedClipsForLayout.length > 0 && (
-                    <button onClick={saveVideoWithFrame}
-                      className="w-full py-4 bg-violet-600 text-white rounded-[25px] font-black text-sm flex items-center justify-center gap-2 hover:bg-violet-700 active:scale-95 transition-all shadow-md">
-                      <Video size={16} /> 동영상 저장 ({getVideoExt(videoMime.current).toUpperCase()})
-                    </button>
-                  )}
                   <button onClick={resetAll}
-                    className="w-full py-3 border-2 border-neutral-100 bg-white text-neutral-400 rounded-[25px] font-black text-xs hover:bg-neutral-50 active:scale-95 transition-all">
+                    className="w-full py-4 border-2 border-neutral-100 bg-white text-neutral-400 rounded-2xl font-black text-xs hover:bg-neutral-50 active:scale-95 transition-all">
                     처음으로
                   </button>
                 </div>
