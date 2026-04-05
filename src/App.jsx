@@ -72,7 +72,7 @@ function FrameLabel({ frame }) {
       {isInitial ? (
         <>
           <p className={`text-[24px] font-black tracking-[0.1em] italic ${dark ? 'text-white/40' : 'text-black/40'}`}>신림 네컷</p>
-          <p className={`text-[14px] font-serif italic tracking-widest ${dark ? 'text-white/20' : 'text-black/25'}`}>{dateStr}</p>
+          <p className={`text-[14px] font-serif italic tracking-widest font-semibold ${dark ? 'text-white/70' : 'text-black/70'}`}>{dateStr}</p>
         </>
       ) : (
         // Empty space to maintain height for custom uploaded frames
@@ -340,24 +340,30 @@ function App() {
                         aspectRatio: '9/16',
                         display: 'flex', 
                         flexDirection: 'column', 
-                        padding: '24px 20px', // Matches ~80px top in 1080px width
+                        // SVG Mapping: Top 78px / 3.6 = 21.6px, Side 65px / 3.6 = 18px
+                        padding: '21.6px 18px',
                         backgroundColor: selectedFrame.hex || '#ffffff' 
                       }}>
                       <div className="absolute inset-0 z-0 pointer-events-none">
                         {selectedFrame?.image && <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />}
                       </div>
                       
-                      {/* Photos Grid - Precisely aligned to template placeholder slots */}
-                      <div className="relative z-10 grid grid-cols-2 gap-2 mt-2">
+                      {/* Photos Grid - Precisely aligned to SVG Path slots */}
+                      <div className="relative z-10 grid grid-cols-2" 
+                        style={{ 
+                          // Horizontal gap 24px / 3.6 = 6.6px, Vertical gap 22px / 3.6 = 6.1px
+                          columnGap: '6.6px', 
+                          rowGap: '6.1px' 
+                        }}>
                         {selectedPhotosForLayout.map((p, i) => (
-                          <div key={i} className="aspect-[2/3] overflow-hidden rounded-[1px] bg-neutral-100 shadow-sm flex items-center justify-center">
+                          <div key={i} className="overflow-hidden rounded-[1px] bg-neutral-100 shadow-inner" style={{ aspectRatio: '463/689' }}>
                             <img src={p} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }} />
                           </div>
                         ))}
                       </div>
                       
-                      {/* Label Area - Positioned precisely where the template text was */}
-                      <div className="relative z-10 mt-auto mb-16">
+                      {/* Label Area - Bottom 442px in 1080, which is ~123px in 300px UI */}
+                      <div className="relative z-10 mt-auto mb-12">
                         <FrameLabel frame={selectedFrame} />
                       </div>
                     </div>
