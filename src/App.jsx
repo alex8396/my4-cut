@@ -220,6 +220,14 @@ function App() {
 
   return (
     <div className="h-screen bg-[#fdfcfb] font-sans text-neutral-900 overflow-hidden flex flex-col selection:bg-indigo-100">
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #ccc; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
       {/* ── No Header ── */}
 
       <main className="flex-1 overflow-hidden relative">
@@ -325,23 +333,21 @@ function App() {
             </motion.div>
           )}
 
-          {/* ── RESULT ── */}
           {step === STEPS.RESULT && (
             <motion.div key="result" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-              className="flex flex-row items-center justify-center h-full w-full p-6 relative gap-8">
+              className="flex flex-col items-center justify-start h-full w-full py-4 px-6 relative gap-4 overflow-hidden">
               
-              <div className="flex-1 flex justify-center items-center h-full">
+              <div className="flex flex-col justify-center items-center flex-1 min-h-0">
                 {/* ── Photo Preview (Centered) ── */}
                 <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in duration-700">
                     <div id="photo-frame-result"
-                      className="shadow-[0_40px_100px_rgba(0,0,0,0.3)] relative overflow-hidden transition-all duration-500 rounded-sm hover:-translate-y-1"
+                      className="shadow-[0_30px_80px_rgba(0,0,0,0.2)] relative overflow-hidden transition-all duration-500 rounded-sm hover:-translate-y-1"
                       style={{ 
-                        width: '300px', 
+                        width: '260px', 
                         aspectRatio: '9/16',
                         display: 'flex', 
                         flexDirection: 'column', 
-                        // SVG Mapping: Top 78px / 3.6 = 21.6px, Side 65px / 3.6 = 18px
-                        padding: '21.6px 18px',
+                        padding: '18px 14px',
                         backgroundColor: selectedFrame.hex || '#ffffff' 
                       }}>
                       <div className="absolute inset-0 z-0 pointer-events-none">
@@ -367,71 +373,78 @@ function App() {
                         <FrameLabel frame={selectedFrame} />
                       </div>
                     </div>
-                  {resultPhase === 'filter' && (
                     <button onClick={saveImage}
-                      className="mt-6 w-full py-4 bg-neutral-900 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 hover:bg-black active:scale-95 transition-all shadow-xl animate-in fade-in slide-in-from-top-2">
+                      className="mt-4 px-10 py-3.5 bg-neutral-900 text-white rounded-full font-black text-[12px] flex items-center justify-center gap-2 hover:bg-black active:scale-95 transition-all shadow-xl animate-in fade-in slide-in-from-top-2">
                       <Download size={14} /> 이미지 저장
                     </button>
-                  )}
                 </div>
               </div>
 
-              {/* ── Controls Panel ── */}
-              <div className="flex flex-col gap-5 w-full max-w-[300px] p-6 bg-white/60 backdrop-blur-2xl rounded-[40px] border border-neutral-100 shadow-2xl overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 100px)' }}>
-                {resultPhase === 'frame' ? (
-                  <>
-                    <h4 className="text-[13px] font-black text-indigo-700 flex items-center gap-2">
-                      <span className="bg-indigo-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]">1</span> 프레임
-                    </h4>
-                    <div className="grid grid-cols-4 gap-2">
+              {/* ── Controls Panel (Bottom Slider) ── */}
+              <div className="w-full max-w-xl bg-white/90 backdrop-blur-3xl rounded-[40px] border border-neutral-100 shadow-2xl p-6 flex flex-col gap-4 mb-4">
+                {/* Tabs Header */}
+                <div className="flex gap-8 border-b border-neutral-50 px-4 pb-2 mb-2">
+                  <button 
+                    onClick={() => setResultPhase('frame')}
+                    className={`pb-2 text-[14px] font-black transition-all relative ${resultPhase === 'frame' ? 'text-indigo-600' : 'text-neutral-300 hover:text-neutral-500'}`}>
+                    프레임 선택
+                    {resultPhase === 'frame' && <motion.div layoutId="activeTabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full" />}
+                  </button>
+                  <button 
+                    onClick={() => setResultPhase('filter')}
+                    className={`pb-2 text-[14px] font-black transition-all relative ${resultPhase === 'filter' ? 'text-rose-500' : 'text-neutral-300 hover:text-neutral-500'}`}>
+                    필터 선택
+                    {resultPhase === 'filter' && <motion.div layoutId="activeTabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-500 rounded-full" />}
+                  </button>
+                  
+                  {resultPhase === 'frame' && (
+                    <label className="ml-auto text-[11px] font-bold text-neutral-400 cursor-pointer hover:text-indigo-600 flex items-center gap-1 bg-neutral-50 px-3 py-1.5 rounded-full self-center transition-all hover:scale-105 active:scale-95">
+                      <Plus size={12} /> 추가
+                      <input type="file" className="hidden" onChange={handleFrameUpload} accept="image/png,image/jpeg" />
+                    </label>
+                  )}
+                </div>
+
+                <div className="relative">
+                  {resultPhase === 'frame' ? (
+                    <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-4 pt-1 scroll-smooth flex-nowrap px-4 -mx-4 group">
                       {INITIAL_FRAMES.map(f => (
-                        <button key={f.id} onClick={() => setSelectedFrame(f)}
-                          className={`aspect-square rounded-xl border-2 transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-110 shadow-md z-10' : 'border-neutral-100 hover:bg-white'}`}>
+                        <button key={f.id} 
+                          onClick={() => { setSelectedFrame(f); }}
+                          className={`w-16 h-16 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
                           {f.image ? <img src={f.image} className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ backgroundColor: f.hex }} />}
                         </button>
                       ))}
                       {customFrames.map(f => (
-                        <div key={f.id} className="relative group">
-                          <button onClick={() => setSelectedFrame(f)} className={`aspect-square rounded-xl border-2 transition-all overflow-hidden w-full ${selectedFrame.id === f.id ? 'border-indigo-600 scale-110 shadow-md z-10' : 'border-neutral-100'}`}>
+                        <div key={f.id} className="relative group flex-shrink-0">
+                          <button onClick={() => { setSelectedFrame(f); }} 
+                            className={`w-16 h-16 rounded-xl border-[3px] transition-all overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50'}`}>
                             <img src={f.image} className="w-full h-full object-cover" />
                           </button>
-                          <button onClick={() => deleteCustomFrame(f.id)} className="absolute -top-1 -right-1 bg-rose-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity ring-2 ring-white z-20">
+                          <button onClick={() => deleteCustomFrame(f.id)} className="absolute -top-1 -right-1 bg-rose-500 text-white p-1 rounded-full ring-2 ring-white z-30 shadow-lg transition-transform hover:scale-110 active:scale-90">
                             <Trash2 size={8} />
                           </button>
                         </div>
                       ))}
-                      <label className="aspect-square rounded-xl border-2 border-dashed border-neutral-200 flex items-center justify-center cursor-pointer hover:border-indigo-400 text-neutral-300">
-                        <Plus size={18} />
-                        <input type="file" className="hidden" onChange={handleFrameUpload} accept="image/png,image/jpeg" />
-                      </label>
                     </div>
-                    <button onClick={() => setResultPhase('filter')}
-                      className="w-full py-5 bg-indigo-600 text-white rounded-[30px] font-black text-base flex items-center justify-center gap-2 shadow-lg hover:bg-indigo-700 active:scale-95 transition-all">
-                      다음: 필터 <ChevronRight size={20} />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button onClick={() => setResultPhase('frame')} className="text-xs text-neutral-400 font-bold flex items-center gap-1 hover:text-neutral-700 transition-colors">
-                      <ChevronLeft size={14} /> 프레임 다시 고르기
-                    </button>
-                    <h4 className="text-[13px] font-black text-rose-500 flex items-center gap-2">
-                      <span className="bg-rose-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]">2</span> 필터
-                    </h4>
-                    <div className="grid grid-cols-3 gap-2">
+                  ) : (
+                    <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-4 pt-1 scroll-smooth flex-nowrap px-4 -mx-4">
                       {FILTERS.map(f => (
                         <button key={f.id} onClick={() => setActiveFilter(f)}
-                          className={`aspect-square rounded-xl border-2 transition-all overflow-hidden ${activeFilter.id === f.id ? 'border-rose-400 scale-110 shadow-md z-10' : 'border-neutral-100'}`}>
-                          <img src={capturedPhotos[0]} className="w-full h-full object-cover" style={{ filter: f.filter }} />
+                          className={`w-16 h-16 flex-shrink-0 rounded-xl border-[3px] transition-all overflow-hidden ${activeFilter.id === f.id ? 'border-rose-400 scale-105 shadow-lg z-20' : 'border-neutral-50'}`}>
+                          <div className="relative w-full h-full">
+                            <img src={capturedPhotos[0]} className="w-full h-full object-cover" style={{ filter: f.filter }} />
+                            <div className="absolute inset-x-0 bottom-0 bg-black/60 py-1 text-[8px] text-white font-black backdrop-blur-[1px]">{f.name}</div>
+                          </div>
                         </button>
                       ))}
                     </div>
-                  </>
-                )}
+                  )}
+                </div>
 
-                <div className="flex flex-col gap-2 pt-2 border-t border-neutral-100">
+                <div className="flex justify-center pt-2 border-t border-neutral-50 px-2 mt-1">
                   <button onClick={resetAll}
-                    className="w-full py-4 border-2 border-neutral-100 bg-white text-neutral-400 rounded-2xl font-black text-xs hover:bg-neutral-50 active:scale-95 transition-all">
+                    className="w-full py-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-500 font-black text-[12px] rounded-2xl transition-all active:scale-[0.98]">
                     처음으로
                   </button>
                 </div>
