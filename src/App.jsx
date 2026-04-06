@@ -71,8 +71,8 @@ function FrameLabel({ frame }) {
     <div className={`pt-8 pb-10 ${isInitial ? 'border-t' : ''} ${dark ? 'border-white/10' : 'border-black/5'} flex flex-col items-center gap-1.5 min-h-[100px]`}>
       {isInitial ? (
         <>
-          <p className={`text-[24px] font-black tracking-[0.1em] italic ${dark ? 'text-white/40' : 'text-black/40'}`}>신림 네컷</p>
-          <p className={`text-[14px] font-serif italic tracking-widest font-semibold ${dark ? 'text-white/70' : 'text-black/70'}`}>{dateStr}</p>
+          <p className={`text-[26px] tracking-[0.1em] ${dark ? 'text-white/40' : 'text-black/40'}`} style={{ fontFamily: 'GeekbleMalang2' }}>신림 네컷</p>
+          <p className={`text-[15px] tracking-[0.2em] font-medium ${dark ? 'text-white/70' : 'text-black/70'}`} style={{ fontFamily: 'OG_Renaissance_Secret' }}>{dateStr}</p>
         </>
       ) : (
         // Empty space to maintain height for custom uploaded frames
@@ -395,7 +395,7 @@ function App() {
                       </div>
                       
                       {/* Label Area - Proportional margin */}
-                      <div className="relative z-10 mt-auto mb-[15%]">
+                      <div className="relative z-10 mt-auto mb-[20%]">
                         <FrameLabel frame={selectedFrame} />
                       </div>
                     </div>
