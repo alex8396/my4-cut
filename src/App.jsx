@@ -370,32 +370,34 @@ function App() {
                         height: '100%', 
                         maxHeight: '800px', // Prevent it from getting absurdly giant on huge desktop monitors
                         aspectRatio: '9/16',
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        // Proportional percentage padding based on width to maintain layout precisely at any height
-                        padding: '7.5% 5.6%',
                         backgroundColor: selectedFrame.hex || '#ffffff' 
                       }}>
                       <div className="absolute inset-0 z-0 pointer-events-none">
                         {selectedFrame?.image && <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />}
                       </div>
                       
-                      {/* Photos Grid - Precisely aligned to SVG Path slots */}
-                      <div className="relative z-10 grid grid-cols-2" 
-                        style={{ 
-                          // Proportional gap scaling
-                          columnGap: '2.1%', 
-                          rowGap: '1.9%' 
-                        }}>
-                        {selectedPhotosForLayout.map((p, i) => (
-                          <div key={i} className="overflow-hidden rounded-[1px] bg-neutral-100 shadow-inner" style={{ aspectRatio: '463/689' }}>
+                      {/* Photos Absolute Positioning matched accurately to 1080x1920 SVG template */}
+                      {selectedPhotosForLayout.map((p, i) => {
+                        const slots = [
+                          { left: '6.0185%', top: '4.0625%' },   // X:65, Y:78
+                          { left: '51.1111%', top: '4.0625%' },  // X:552, Y:78
+                          { left: '6.0185%', top: '41.0938%' },  // X:65, Y:789
+                          { left: '51.1111%', top: '41.0938%' }  // X:552, Y:789
+                        ];
+                        return (
+                          <div key={i} className="absolute overflow-hidden bg-neutral-100 z-10" 
+                            style={{ 
+                              ...slots[i],
+                              width: '42.8704%', // 463 / 1080
+                              height: '35.8854%' // 689 / 1920
+                            }}>
                             <img src={p} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }} />
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })}
                       
-                      {/* Label Area - Proportional margin */}
-                      <div className="relative z-10 mt-auto mb-[20%]">
+                      {/* Label Area centered in the bottom space */}
+                      <div className="absolute bottom-[6%] inset-x-0 z-10 flex justify-center">
                         <FrameLabel frame={selectedFrame} />
                       </div>
                     </div>
