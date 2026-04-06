@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import html2canvas from 'html2canvas';
 import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -83,7 +82,7 @@ function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapt
       const h1 = pxSize1 * 1.2;
       const h2 = pxSize2 * 1.2;
       const totalH = h1 + gapPx + h2;
-      const height = totalH + 40; // extra padding
+      const height = totalH; // 여백 제거
       
       canvas.width = width * dpr;
       canvas.height = height * dpr;
@@ -95,8 +94,8 @@ function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapt
       const color1 = dark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)';
       const color2 = dark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)';
       
-      const startY = 20 + h1 / 2;
-      const secondY = 20 + h1 + gapPx + h2 / 2;
+      const startY = h1 / 2;
+      const secondY = h1 + gapPx + h2 / 2;
 
       if ('letterSpacing' in ctx) ctx.letterSpacing = '0.1em';
       ctx.font = `${pxSize1}px GeekbleMalang2`;
@@ -115,8 +114,14 @@ function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapt
   }, [isInitial, dark, dateStr, size1, gap]);
 
   return (
-    <div className={`w-full flex flex-col items-center justify-center ${dark ? 'border-white/10' : 'border-black/5'} ${isInitial && !isCapture ? (dark ? 'border-t border-white/10' : 'border-t-2 border-black/5') : ''}`}
-         style={{ height: isCapture ? '100%' : 'auto', paddingTop: isCapture ? '0' : '32px', paddingBottom: isCapture ? '0' : '40px' }}>
+    <div className={`w-full flex flex-col items-center justify-center ${isInitial && !isCapture ? 'border-t-2' : ''}`}
+         style={{ 
+           height: isCapture ? '100%' : 'auto', 
+           paddingTop: isCapture ? '0' : '32px', 
+           paddingBottom: isCapture ? '0' : '40px',
+           backgroundColor: 'transparent',
+           borderColor: frame?.hex || 'transparent'
+         }}>
       {isInitial ? (
         imgUrl ? (
           <img src={imgUrl} style={{ width: size1 === '80px' ? '1080px' : '300px', height: 'auto', pointerEvents: 'none', objectFit: 'contain' }} alt="label" />
@@ -220,15 +225,96 @@ function App() {
   };
 
   const saveImage = async () => {
-    const el = document.getElementById('photo-frame-result');
-    if (!el) return;
+    const W = 1080, H = 1920;
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
 
-    // DOM 자체가 1080x1920 이므로 그냥 캡쳐하면 딱 그 사이즈 고스란히 담깁니다.
-    const canvas = await html2canvas(el, { 
-      useCORS: true, 
-      scale: 1, 
-      backgroundColor: null,
-    });
+    const bgColor = selectedFrame.hex || '#ffffff';
+
+    // 1. 배경색 채우기
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, W, H);
+
+    // 2. 사진 4장 그리기 (프레임 이미지보다 먼저 - 프레임이 사진 위를 덮어 테두리 역할)
+    const slots = [
+      { x: 65, y: 78 },  { x: 552, y: 78 },
+      { x: 65, y: 789 }, { x: 552, y: 789 }
+    ];
+    const SW = 463, SH = 689;
+
+    for (let i = 0; i < selectedPhotosForLayout.length; i++) {
+      const slot = slots[i];
+      await new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          // object-cover 방식: 슬롯을 꽉 채우되 비율 유지
+          const scale = Math.max(SW / img.width, SH / img.height);
+          const dw = img.width * scale;
+          const dh = img.height * scale;
+          const dx = slot.x + (SW - dw) / 2;
+          const dy = slot.y + (SH - dh) / 2;
+
+          ctx.save();
+          ctx.beginPath(); // 반드시 beginPath로 초기화
+          ctx.rect(slot.x, slot.y, SW, SH);
+          ctx.clip();
+
+          if (activeFilter.filter !== 'none') ctx.filter = activeFilter.filter;
+          ctx.drawImage(img, dx, dy, dw, dh);
+          ctx.filter = 'none';
+          ctx.restore();
+          resolve();
+        };
+        img.onerror = resolve;
+        img.src = selectedPhotosForLayout[i];
+      });
+    }
+
+    // 3. 이미지 프레임이면 사진 위에 오버레이 (테두리/마스크 역할)
+    if (selectedFrame.image) {
+      await new Promise(resolve => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => { ctx.drawImage(img, 0, 0, W, H); resolve(); };
+        img.onerror = resolve;
+        img.src = selectedFrame.image;
+      });
+    }
+
+    // 4. 브랜드/날짜 레이블 (단색 프레임에만 표시)
+    const isInitial = INITIAL_FRAMES.some(f => f.id === selectedFrame?.id);
+    if (isInitial) {
+      const dark = selectedFrame?.id === 'black';
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
+
+      const lc = document.createElement('canvas');
+      const dpr = 3;
+      const pxSize1 = 80, pxSize2 = 46, gapPx = 20;
+      const h1 = pxSize1 * 1.2, h2 = pxSize2 * 1.2;
+      const lh = h1 + gapPx + h2;
+      lc.width = W * dpr;
+      lc.height = lh * dpr;
+      const lctx = lc.getContext('2d');
+      lctx.scale(dpr, dpr);
+      lctx.textAlign = 'center';
+      lctx.textBaseline = 'middle';
+      if ('letterSpacing' in lctx) lctx.letterSpacing = '0.1em';
+      lctx.font = `${pxSize1}px GeekbleMalang2`;
+      lctx.fillStyle = dark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+      lctx.fillText('신림 네컷', W / 2, h1 / 2);
+      if ('letterSpacing' in lctx) lctx.letterSpacing = '0.2em';
+      lctx.font = `500 ${pxSize2}px OG_Renaissance_Secret`;
+      lctx.fillStyle = dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)';
+      lctx.fillText(dateStr, W / 2, h1 + gapPx + h2 / 2 - 4);
+
+      const labelAreaTop = 1478;
+      const labelAreaH = 442;
+      const labelY = labelAreaTop + (labelAreaH - lh) / 2;
+      ctx.drawImage(lc, 0, 0, lc.width, lc.height, 0, labelY, W, lh);
+    }
 
     const a = document.createElement('a');
     a.download = `shillim-4cut-${Date.now()}.png`;
@@ -428,7 +514,7 @@ function App() {
                        marginBottom: `${1920 * Math.min(1, (viewportSize.w - 40) / 1080, ((viewportSize.h || 800) - 260) / 1920) - 1920 + 20}px` 
                      }}>
                       <div id="photo-frame-result"
-                      className="shadow-[0_40px_100px_rgba(0,0,0,0.3)] relative overflow-hidden transition-all duration-500 rounded-lg hover:-translate-y-2 mx-auto w-full h-full"
+                      className="shadow-[0_40px_100px_rgba(0,0,0,0.3)] relative overflow-hidden transition-transform duration-300 rounded-lg hover:-translate-y-2 mx-auto w-full h-full"
                       style={{ backgroundColor: selectedFrame.hex || '#ffffff' }}>
                       
                       <div className="absolute inset-0 z-0 pointer-events-none">
@@ -443,8 +529,8 @@ function App() {
                           { left: '552px', top: '789px' }
                         ];
                         return (
-                          <div key={i} className="absolute overflow-hidden bg-neutral-100 z-10" 
-                            style={{ ...slots[i], width: '463px', height: '689px' }}>
+                          <div key={i} className="absolute overflow-hidden z-10" 
+                            style={{ ...slots[i], width: '463px', height: '689px', backgroundColor: selectedFrame.hex || '#ffffff' }}>
                             <img src={p} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }} />
                           </div>
                         );
