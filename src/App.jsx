@@ -218,6 +218,22 @@ function App() {
     setStep(STEPS.LAYOUT); setCountdown(null); setResultPhase('frame');
   };
 
+  const goBack = () => {
+    if (step === STEPS.CAMERA) {
+      setStep(STEPS.LAYOUT);
+      setCapturedPhotos([]);
+      setCountdown(null);
+    } else if (step === STEPS.SELECT) {
+      // Re-shoot from scratch or keep previous photos? Keeping it simple: user goes back to camera but photos are kept?
+      // Actually, if they go back to camera, they might resume capturing. Let's not clear capturedPhotos here,
+      // or clear only selected layout photos.
+      setStep(STEPS.CAMERA);
+      setSelectedPhotosForLayout([]);
+    } else if (step === STEPS.RESULT) {
+      setStep(STEPS.SELECT);
+    }
+  };
+
   return (
     <div className="h-screen bg-[#fdfcfb] font-sans text-neutral-900 overflow-hidden flex flex-col selection:bg-indigo-100">
       <style>{`
@@ -231,6 +247,14 @@ function App() {
       {/* ── No Header ── */}
 
       <main className="flex-1 overflow-hidden relative">
+        {step > STEPS.LAYOUT && (
+          <button 
+            onClick={goBack}
+            className="absolute top-6 left-6 z-50 p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg text-neutral-600 hover:text-indigo-600 hover:scale-110 active:scale-90 transition-all border border-neutral-100"
+          >
+            <ChevronLeft size={24} />
+          </button>
+        )}
         <AnimatePresence mode="wait">
 
           {/* ── LAYOUT: Pick shot count ── */}
