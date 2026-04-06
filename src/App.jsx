@@ -237,7 +237,18 @@ function App() {
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, W, H);
 
-    // 2. 사진 4장 그리기 (프레임 이미지보다 먼저 - 프레임이 사진 위를 덮어 테두리 역할)
+    // 2. 이미지 프레임이면 배경으로 그리기 (사진보다 먼저)
+    if (selectedFrame.image) {
+      await new Promise(resolve => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => { ctx.drawImage(img, 0, 0, W, H); resolve(); };
+        img.onerror = resolve;
+        img.src = selectedFrame.image;
+      });
+    }
+
+    // 3. 사진 4장 그리기 (프레임 위에 배치)
     const slots = [
       { x: 65, y: 78 },  { x: 552, y: 78 },
       { x: 65, y: 789 }, { x: 552, y: 789 }
@@ -269,17 +280,6 @@ function App() {
         };
         img.onerror = resolve;
         img.src = selectedPhotosForLayout[i];
-      });
-    }
-
-    // 3. 이미지 프레임이면 사진 위에 오버레이 (테두리/마스크 역할)
-    if (selectedFrame.image) {
-      await new Promise(resolve => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => { ctx.drawImage(img, 0, 0, W, H); resolve(); };
-        img.onerror = resolve;
-        img.src = selectedFrame.image;
       });
     }
 
