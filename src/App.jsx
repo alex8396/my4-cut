@@ -56,9 +56,7 @@ function FrameOverlay({ frame }) {
   );
 }
 
-// 네컷 frame label — always occupy space to maintain uniform frame size
-function FrameLabel({ frame }) {
-  // Show on all default provided frames (INITIAL_FRAMES)
+function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapture = false }) {
   const isInitial = INITIAL_FRAMES.some(f => f.id === frame?.id);
   const dark = frame?.id === 'black';
   const now = new Date();
@@ -68,15 +66,15 @@ function FrameLabel({ frame }) {
   const dateStr = `${year}.${month}.${day}`;
   
   return (
-    <div className={`pt-8 pb-10 ${isInitial ? 'border-t' : ''} ${dark ? 'border-white/10' : 'border-black/5'} flex flex-col items-center gap-1.5 min-h-[100px]`}>
+    <div className={`w-full flex flex-col items-center justify-center ${dark ? 'border-white/10' : 'border-black/5'} ${isInitial && !isCapture ? (dark ? 'border-t border-white/10' : 'border-t-2 border-black/5') : ''}`}
+         style={{ gap: gap, height: isCapture ? '100%' : 'auto', paddingTop: isCapture ? '0' : '32px', paddingBottom: isCapture ? '0' : '40px' }}>
       {isInitial ? (
         <>
-          <p className={`text-[26px] tracking-[0.1em] ${dark ? 'text-white/40' : 'text-black/40'}`} style={{ fontFamily: 'GeekbleMalang2' }}>신림 네컷</p>
-          <p className={`text-[15px] tracking-[0.2em] font-medium ${dark ? 'text-white/70' : 'text-black/70'}`} style={{ fontFamily: 'OG_Renaissance_Secret' }}>{dateStr}</p>
+          <p className={`tracking-[0.1em] ${dark ? 'text-white/40' : 'text-black/40'}`} style={{ fontFamily: 'GeekbleMalang2', fontSize: size1, lineHeight: '1.2' }}>신림 네컷</p>
+          <p className={`tracking-[0.2em] font-medium ${dark ? 'text-white/70' : 'text-black/70'}`} style={{ fontFamily: 'OG_Renaissance_Secret', fontSize: size2, lineHeight: '1.2' }}>{dateStr}</p>
         </>
       ) : (
-        // Empty space to maintain height for custom uploaded frames
-        <div className="h-[55px]" />
+        <div style={{ height: isCapture ? '100%' : '55px' }} />
       )}
     </div>
   );
@@ -93,6 +91,13 @@ function App() {
   const [countdown, setCountdown] = useState(null);
   const [selectedPhotosForLayout, setSelectedPhotosForLayout] = useState([]);
   const [resultPhase, setResultPhase] = useState('frame');
+  const [viewportSize, setViewportSize] = useState({ w: window.innerWidth, h: window.innerHeight });
+
+  useEffect(() => {
+    const handleResize = () => setViewportSize({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const webcamRef = useRef(null);
   const isCapturing = useRef(false);
@@ -164,16 +169,14 @@ function App() {
   const saveImage = async () => {
     const el = document.getElementById('photo-frame-result');
     if (!el) return;
-    // Scale current 300px width to reach 1080px (3.6x)
+
+    // DOM 자체가 1080x1920 이므로 그냥 캡쳐하면 딱 그 사이즈 고스란히 담깁니다.
     const canvas = await html2canvas(el, { 
       useCORS: true, 
-      scale: 3.6, 
+      scale: 1, 
       backgroundColor: null,
-      scrollX: 0,
-      scrollY: -window.scrollY,
-      windowWidth: document.documentElement.offsetWidth,
-      windowHeight: document.documentElement.offsetHeight
     });
+
     const a = document.createElement('a');
     a.download = `shillim-4cut-${Date.now()}.png`;
     a.href = canvas.toDataURL('image/png');
@@ -361,51 +364,49 @@ function App() {
             <motion.div key="result" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
               className="flex flex-col items-center justify-start h-full w-full pt-[10px] pb-4 px-6 relative gap-2.5 overflow-hidden">
               
-              <div className="flex flex-col justify-center items-center flex-1 min-h-0 w-full">
-                {/* ── Photo Preview (Centered) ── */}
-                <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in fade-in zoom-in duration-700">
-                    <div id="photo-frame-result"
-                      className="shadow-[0_40px_100px_rgba(0,0,0,0.3)] relative overflow-hidden transition-all duration-500 rounded-sm hover:-translate-y-1 mx-auto"
-                      style={{ 
-                        height: '100%', 
-                        maxHeight: '800px', // Prevent it from getting absurdly giant on huge desktop monitors
-                        aspectRatio: '9/16',
-                        backgroundColor: selectedFrame.hex || '#ffffff' 
-                      }}>
+              <div className="flex-1 w-full overflow-y-auto overflow-x-hidden flex flex-col items-center relative">
+                {/* ── Photo Preview (1080x1920 UI) ── */}
+                <div className="animate-in fade-in zoom-in duration-700 mt-4 relative" 
+                     style={{ 
+                       transform: `scale(${Math.min(1, (viewportSize.w - 40) / 1080, ((viewportSize.h || 800) - 260) / 1920)})`, 
+                       transformOrigin: 'top center',
+                       width: '1080px', height: '1920px', 
+                       flexShrink: 0,
+                       marginBottom: `${1920 * Math.min(1, (viewportSize.w - 40) / 1080, ((viewportSize.h || 800) - 260) / 1920) - 1920 + 20}px` 
+                     }}>
+                      <div id="photo-frame-result"
+                      className="shadow-[0_40px_100px_rgba(0,0,0,0.3)] relative overflow-hidden transition-all duration-500 rounded-lg hover:-translate-y-2 mx-auto w-full h-full"
+                      style={{ backgroundColor: selectedFrame.hex || '#ffffff' }}>
+                      
                       <div className="absolute inset-0 z-0 pointer-events-none">
                         {selectedFrame?.image && <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />}
                       </div>
                       
-                      {/* Photos Absolute Positioning matched accurately to 1080x1920 SVG template */}
                       {selectedPhotosForLayout.map((p, i) => {
                         const slots = [
-                          { left: '6.0185%', top: '4.0625%' },   // X:65, Y:78
-                          { left: '51.1111%', top: '4.0625%' },  // X:552, Y:78
-                          { left: '6.0185%', top: '41.0938%' },  // X:65, Y:789
-                          { left: '51.1111%', top: '41.0938%' }  // X:552, Y:789
+                          { left: '65px', top: '78px' },
+                          { left: '552px', top: '78px' },
+                          { left: '65px', top: '789px' },
+                          { left: '552px', top: '789px' }
                         ];
                         return (
                           <div key={i} className="absolute overflow-hidden bg-neutral-100 z-10" 
-                            style={{ 
-                              ...slots[i],
-                              width: '42.8704%', // 463 / 1080
-                              height: '35.8854%' // 689 / 1920
-                            }}>
+                            style={{ ...slots[i], width: '463px', height: '689px' }}>
                             <img src={p} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }} />
                           </div>
                         );
                       })}
                       
-                      {/* Label Area centered in the bottom space */}
-                      <div className="absolute bottom-[6%] inset-x-0 z-10 flex justify-center">
-                        <FrameLabel frame={selectedFrame} />
+                      <div className="absolute left-0 right-0 z-10 flex justify-center items-center" style={{ top: '1478px', height: '442px' }}>
+                        <FrameLabel frame={selectedFrame} size1="80px" size2="46px" gap="20px" />
                       </div>
                     </div>
-                    <button onClick={saveImage}
-                      className="mt-4 flex-shrink-0 px-12 py-4 bg-neutral-900 text-white rounded-full font-black text-[14px] flex items-center justify-center gap-2 hover:bg-black active:scale-95 transition-all shadow-xl animate-in fade-in slide-in-from-top-2 min-w-[200px]">
-                      <Download size={16} /> 이미지 저장
-                    </button>
                 </div>
+                
+                <button onClick={saveImage}
+                  className="mb-8 flex-shrink-0 px-12 py-4 bg-neutral-900 text-white rounded-full font-black text-[16px] flex items-center justify-center gap-2 hover:bg-black active:scale-95 transition-all shadow-xl animate-in fade-in slide-in-from-bottom-4 min-w-[200px] z-20">
+                  <Download size={18} /> 고화질 이미지 저장
+                </button>
               </div>
 
               {/* ── Controls Panel (Bottom Slider) ── */}
