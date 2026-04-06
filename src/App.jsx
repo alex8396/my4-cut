@@ -542,10 +542,7 @@ function App() {
                     </div>
                 </div>
                 
-                <button onClick={saveImage}
-                  className="mb-8 flex-shrink-0 px-12 py-4 bg-neutral-900 text-white rounded-full font-black text-[16px] flex items-center justify-center gap-2 hover:bg-black active:scale-95 transition-all shadow-xl animate-in fade-in slide-in-from-bottom-4 min-w-[200px] z-20">
-                  <Download size={18} /> 이미지 저장
-                </button>
+
               </div>
 
               {/* ── Controls Panel (Bottom Slider) ── */}
@@ -611,9 +608,9 @@ function App() {
                 </div>
 
                 <div className="flex justify-center pt-2 border-t border-neutral-50 px-2 mt-1">
-                  <button onClick={resetAll}
-                    className="w-full py-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-500 font-black text-[12px] rounded-2xl transition-all active:scale-[0.98]">
-                    처음으로
+                  <button onClick={saveImage}
+                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[14px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg">
+                    <Download size={15} /> 저장하기
                   </button>
                 </div>
               </div>
