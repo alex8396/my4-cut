@@ -65,14 +65,67 @@ function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapt
   const day = String(now.getDate()).padStart(2, '0');
   const dateStr = `${year}.${month}.${day}`;
   
+  const [imgUrl, setImgUrl] = useState(null);
+
+  useEffect(() => {
+    if (!isInitial) return;
+    document.fonts.ready.then(() => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const isResult = size1 === '80px';
+      
+      const pxSize1 = isResult ? 80 : 26;
+      const pxSize2 = isResult ? 46 : 15;
+      const gapPx = isResult ? 20 : parseInt(gap.replace(/[^0-9]/g, '')) || 6;
+
+      const dpr = 3;
+      const width = isResult ? 1080 : 300;
+      const h1 = pxSize1 * 1.2;
+      const h2 = pxSize2 * 1.2;
+      const totalH = h1 + gapPx + h2;
+      const height = totalH + 40; // extra padding
+      
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+
+      ctx.scale(dpr, dpr);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      const color1 = dark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)';
+      const color2 = dark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)';
+      
+      const startY = 20 + h1 / 2;
+      const secondY = 20 + h1 + gapPx + h2 / 2;
+
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '0.1em';
+      ctx.font = `${pxSize1}px GeekbleMalang2`;
+      ctx.fillStyle = color1;
+      ctx.fillText('신림 네컷', width / 2, startY);
+      
+      if ('letterSpacing' in ctx) ctx.letterSpacing = '0.2em';
+      ctx.font = `500 ${pxSize2}px OG_Renaissance_Secret`;
+      ctx.fillStyle = color2;
+      
+      // 약간의 위아래 정렬 미세조정 (폰트 차이)
+      ctx.fillText(dateStr, width / 2, secondY - (isResult ? 4 : 1));
+      
+      setImgUrl(canvas.toDataURL('image/png'));
+    });
+  }, [isInitial, dark, dateStr, size1, gap]);
+
   return (
     <div className={`w-full flex flex-col items-center justify-center ${dark ? 'border-white/10' : 'border-black/5'} ${isInitial && !isCapture ? (dark ? 'border-t border-white/10' : 'border-t-2 border-black/5') : ''}`}
-         style={{ gap: gap, height: isCapture ? '100%' : 'auto', paddingTop: isCapture ? '0' : '32px', paddingBottom: isCapture ? '0' : '40px' }}>
+         style={{ height: isCapture ? '100%' : 'auto', paddingTop: isCapture ? '0' : '32px', paddingBottom: isCapture ? '0' : '40px' }}>
       {isInitial ? (
-        <>
-          <p className={`tracking-[0.1em] ${dark ? 'text-white/40' : 'text-black/40'}`} style={{ fontFamily: 'GeekbleMalang2', fontSize: size1, lineHeight: '1.2' }}>신림 네컷</p>
-          <p className={`tracking-[0.2em] font-medium ${dark ? 'text-white/70' : 'text-black/70'}`} style={{ fontFamily: 'OG_Renaissance_Secret', fontSize: size2, lineHeight: '1.2' }}>{dateStr}</p>
-        </>
+        imgUrl ? (
+          <img src={imgUrl} style={{ width: size1 === '80px' ? '1080px' : '300px', height: 'auto', pointerEvents: 'none', objectFit: 'contain' }} alt="label" />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: gap }}>
+            <p className={`tracking-[0.1em] ${dark ? 'text-white/40' : 'text-black/40'}`} style={{ fontFamily: 'GeekbleMalang2', fontSize: size1, lineHeight: '1.2' }}>신림 네컷</p>
+            <p className={`tracking-[0.2em] font-medium ${dark ? 'text-white/70' : 'text-black/70'}`} style={{ fontFamily: 'OG_Renaissance_Secret', fontSize: size2, lineHeight: '1.2' }}>{dateStr}</p>
+          </div>
+        )
       ) : (
         <div style={{ height: isCapture ? '100%' : '55px' }} />
       )}
@@ -405,7 +458,7 @@ function App() {
                 
                 <button onClick={saveImage}
                   className="mb-8 flex-shrink-0 px-12 py-4 bg-neutral-900 text-white rounded-full font-black text-[16px] flex items-center justify-center gap-2 hover:bg-black active:scale-95 transition-all shadow-xl animate-in fade-in slide-in-from-bottom-4 min-w-[200px] z-20">
-                  <Download size={18} /> 고화질 이미지 저장
+                  <Download size={18} /> 이미지 저장
                 </button>
               </div>
 
