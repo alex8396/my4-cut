@@ -359,20 +359,21 @@ function App() {
 
           {step === STEPS.RESULT && (
             <motion.div key="result" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-              className="flex flex-col items-center justify-start h-full w-full py-4 px-6 relative gap-2.5 overflow-hidden">
+              className="flex flex-col items-center justify-start h-full w-full pt-[10px] pb-4 px-6 relative gap-2.5 overflow-hidden">
               
-              <div className="flex flex-col justify-center items-center flex-1 min-h-0">
+              <div className="flex flex-col justify-center items-center flex-1 min-h-0 w-full">
                 {/* ── Photo Preview (Centered) ── */}
-                <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in duration-700">
+                <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in fade-in zoom-in duration-700">
                     <div id="photo-frame-result"
                       className="shadow-[0_40px_100px_rgba(0,0,0,0.3)] relative overflow-hidden transition-all duration-500 rounded-sm hover:-translate-y-1 mx-auto"
                       style={{ 
-                        width: 'min(500px, 80vw)', 
+                        height: '100%', 
+                        maxHeight: '800px', // Prevent it from getting absurdly giant on huge desktop monitors
                         aspectRatio: '9/16',
                         display: 'flex', 
                         flexDirection: 'column', 
-                        // Proportional scaling for padding: 320px -> 24px/18px, 500px -> ~36px/28px
-                        padding: 'min(36px, 7vw) min(28px, 6vw)',
+                        // Proportional percentage padding based on width to maintain layout precisely at any height
+                        padding: '7.5% 5.6%',
                         backgroundColor: selectedFrame.hex || '#ffffff' 
                       }}>
                       <div className="absolute inset-0 z-0 pointer-events-none">
@@ -383,8 +384,8 @@ function App() {
                       <div className="relative z-10 grid grid-cols-2" 
                         style={{ 
                           // Proportional gap scaling
-                          columnGap: 'min(10px, 2vw)', 
-                          rowGap: 'min(10px, 2vw)' 
+                          columnGap: '2.1%', 
+                          rowGap: '1.9%' 
                         }}>
                         {selectedPhotosForLayout.map((p, i) => (
                           <div key={i} className="overflow-hidden rounded-[1px] bg-neutral-100 shadow-inner" style={{ aspectRatio: '463/689' }}>
@@ -399,7 +400,7 @@ function App() {
                       </div>
                     </div>
                     <button onClick={saveImage}
-                      className="mt-8 px-12 py-4 bg-neutral-900 text-white rounded-full font-black text-[14px] flex items-center justify-center gap-2 hover:bg-black active:scale-95 transition-all shadow-xl animate-in fade-in slide-in-from-top-2 min-w-[200px]">
+                      className="mt-4 flex-shrink-0 px-12 py-4 bg-neutral-900 text-white rounded-full font-black text-[14px] flex items-center justify-center gap-2 hover:bg-black active:scale-95 transition-all shadow-xl animate-in fade-in slide-in-from-top-2 min-w-[200px]">
                       <Download size={16} /> 이미지 저장
                     </button>
                 </div>
