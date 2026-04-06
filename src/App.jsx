@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2 } from 'lucide-react';
+import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STEPS = { LAYOUT: 0, CAMERA: 1, SELECT: 2, RESULT: 3 };
@@ -607,10 +607,14 @@ function App() {
                   )}
                 </div>
 
-                <div className="flex justify-center pt-2 border-t border-neutral-50 px-2 mt-1">
+                <div className="flex gap-3 justify-center pt-2 border-t border-neutral-50 px-2 mt-1">
                   <button onClick={saveImage}
-                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[14px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg">
+                    className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[14px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg">
                     <Download size={15} /> 저장하기
+                  </button>
+                  <button onClick={resetAll}
+                    className="flex-1 py-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 font-black text-[14px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                    <Home size={15} /> 홈으로
                   </button>
                 </div>
               </div>
