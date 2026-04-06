@@ -357,6 +357,8 @@ function App() {
   const resetAll = () => {
     setCapturedPhotos([]);
     setSelectedPhotosForLayout([]);
+    setSelectedFrame(INITIAL_FRAMES[0]);
+    setActiveFilter(FILTERS[0]);
     setStep(STEPS.LAYOUT); setCountdown(null); setResultPhase('frame');
   };
 
