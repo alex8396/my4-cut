@@ -201,22 +201,29 @@ function App() {
   const webcamRef = useRef(null);
   const isCapturing = useRef(false);
 
-  // Fetch custom frames from backend
+  // Fetch custom frames from public folder directly (Frontend-only, no backend needed!)
   useEffect(() => {
-    const fetchFrames = async () => {
-      try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/frames`);
-        if (res.ok) {
-          const data = await res.json();
-          const initialImagePaths = INITIAL_FRAMES.map(f => f.image).filter(Boolean);
-          const newCustomFrames = data.filter(f => !initialImagePaths.includes(f.image));
-          setCustomFrames(newCustomFrames);
-          return;
-        }
-      } catch {}
+    try {
+      // Vite's import.meta.glob to read files from public/frames directory
+      const modules = import.meta.glob('/public/frames/*.{png,jpg,jpeg,gif}');
+      
+      const allDiskFrames = Object.keys(modules).map(path => {
+        const filename = path.split('/').pop();
+        return {
+          id: filename,
+          name: filename, // or remove extension: filename.replace(/\.[^/.]+$/, "")
+          image: `/frames/${filename}`
+        };
+      });
+
+      const initialImagePaths = INITIAL_FRAMES.map(f => f.image).filter(Boolean);
+      const newCustomFrames = allDiskFrames.filter(f => !initialImagePaths.includes(f.image));
+      
+      setCustomFrames(newCustomFrames);
+    } catch (e) {
+      console.error("Error reading frontend frames", e);
       setCustomFrames([]);
-    };
-    fetchFrames();
+    }
   }, []);
 
 
