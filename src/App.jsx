@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home } from 'lucide-react';
+import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home, Printer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STEPS = { LAYOUT: 0, CAMERA: 1, SELECT: 2, RESULT: 3 };
@@ -138,6 +138,45 @@ function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapt
   );
 }
 
+function FramePreview({ frame, photos, filter }) {
+  const slots = [
+    { left: '60px', top: '72px' },
+    { left: '516px', top: '72px' },
+    { left: '60px', top: '735px' },
+    { left: '516px', top: '735px' }
+  ];
+  const SW = 432, SH = 642;
+  
+  return (
+    <div className="relative overflow-hidden rounded-xl shadow-2xl mx-auto flex-shrink-0 border-4 border-white/50"
+         style={{ 
+           width: '1008px', height: '1792px',
+           backgroundColor: frame.hex || '#ffffff',
+           transform: 'scale(0.25)', // 배율을 0.18에서 0.25로 확대
+           transformOrigin: 'top center'
+         }}>
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        {frame?.image && <img src={frame.image} className="w-full h-full object-cover opacity-90" />}
+      </div>
+      {slots.map((slot, i) => (
+        <div key={i} className="absolute overflow-hidden z-10 border border-neutral-100/50" 
+          style={{ ...slot, width: `${SW}px`, height: `${SH}px`, backgroundColor: frame.hex || '#f8f8f8' }}>
+          {photos[i] ? (
+            <img src={photos[i]} className="w-full h-full object-cover" style={{ filter: filter }} />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-neutral-300 font-black text-6xl">
+              {i + 1}
+            </div>
+          )}
+        </div>
+      ))}
+      <div className="absolute left-0 right-0 z-10 flex justify-center items-center" style={{ top: '1380px', height: '412px' }}>
+        <FrameLabel frame={frame} size1="80px" size2="46px" gap="20px" isCapture={true} />
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [step, setStep] = useState(STEPS.LAYOUT);
   const [selectedShots, setSelectedShots] = useState(SHOT_OPTIONS[0]);
@@ -224,7 +263,7 @@ function App() {
     }
   };
 
-  const saveImage = async () => {
+  const generateFinalImage = async () => {
     const W = 1080, H = 1920;
     const canvas = document.createElement('canvas');
     canvas.width = W;
@@ -315,11 +354,37 @@ function App() {
       const labelY = labelAreaTop + (labelAreaH - lh) / 2;
       ctx.drawImage(lc, 0, 0, lc.width, lc.height, 0, labelY, W, lh);
     }
+    return canvas.toDataURL('image/png');
+  };
 
+  const saveImage = async () => {
+    const dataUrl = await generateFinalImage();
     const a = document.createElement('a');
     a.download = `shillim-4cut-${Date.now()}.png`;
-    a.href = canvas.toDataURL('image/png');
+    a.href = dataUrl;
     a.click();
+  };
+
+  const printImage = async () => {
+    const dataUrl = await generateFinalImage();
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Shillim 4-Cut Print</title>
+          <style>
+            @page { size: auto; margin: 0; }
+            body { margin: 0; display: flex; align-items: center; justify-content: center; background: white; }
+            img { max-width: 100vw; max-height: 100vh; object-fit: contain; }
+          </style>
+        </head>
+        <body onload="setTimeout(() => { window.print(); window.close(); }, 500)">
+          <img src="${dataUrl}" />
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
 
@@ -467,37 +532,56 @@ function App() {
           {/* ── SELECT ── */}
           {step === STEPS.SELECT && (
             <motion.div key="select" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="flex flex-col items-center justify-center p-6 h-full w-full">
-              <h2 className="text-3xl font-black italic tracking-tighter text-indigo-900 mb-1">순서대로 4장을 선택해주세요</h2>
-              <p className="text-neutral-400 mb-8 font-bold text-sm tracking-tight">{selectedPhotosForLayout.length} / 4 선택됨 · 선택한 순서대로 프레임에 배치됩니다 ✨</p>
-
-              <div className="grid grid-cols-4 gap-4 w-full max-w-4xl mb-8 overflow-y-auto max-h-[58vh] p-2">
-                {capturedPhotos.map((photo, i) => {
-                  const selIdx = selectedPhotosForLayout.indexOf(photo);
-                  const isSel = selIdx !== -1;
-                  return (
-                    <button key={i} onClick={() => togglePhotoSelection(photo)}
-                      className={`relative aspect-[3/4] rounded-2xl overflow-hidden shadow-lg border-4 transition-all ${isSel ? 'border-indigo-600 scale-105' : 'border-white opacity-75 hover:opacity-100'}`}>
-                      <img src={photo} className="w-full h-full object-cover" />
-                      {isSel && (
-                        <div className="absolute inset-0 bg-indigo-600/20 flex items-center justify-center">
-                          <div className="w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black text-2xl shadow-xl ring-4 ring-white">
-                            {selIdx + 1}
-                          </div>
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
+              className="flex flex-col items-center justify-start p-4 h-full w-full overflow-hidden">
+              
+              <div className="flex-shrink-0 text-center mb-2">
+                <h2 className="text-2xl font-black italic tracking-tighter text-indigo-900 mb-0.5">순서대로 4장을 선택해주세요</h2>
+                <p className="text-[11px] text-neutral-400 font-bold tracking-tight">선택한 순서대로 실시간 프레임에 배치됩니다 ✨</p>
               </div>
 
-              <button
-                onClick={() => { if (selectedPhotosForLayout.length === 4) setStep(STEPS.RESULT); }}
-                disabled={selectedPhotosForLayout.length !== 4}
-                className={`px-12 py-5 rounded-[40px] font-black text-xl flex items-center gap-4 transition-all shadow-xl
-                  ${selectedPhotosForLayout.length === 4 ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-105 active:scale-95' : 'bg-neutral-200 text-neutral-400 opacity-50 cursor-not-allowed'}`}>
-                선택 완료 및 꾸미기 <ChevronRight />
-              </button>
+              {/* Real-time Preview */}
+              <div className="flex-1 w-full flex justify-center items-center overflow-hidden min-h-0">
+                <div style={{ height: '448px' }} className="flex justify-center items-start">
+                  <FramePreview frame={selectedFrame} photos={selectedPhotosForLayout} filter={activeFilter.filter} />
+                </div>
+              </div>
+
+              {/* Selection Bottom Area */}
+              <div className="w-full max-w-5xl bg-white/50 backdrop-blur-xl border-t border-neutral-100/50 p-4 flex flex-col gap-4 flex-shrink-0">
+                <div className="flex items-center justify-between px-2">
+                  <div className="flex flex-col">
+                    <h2 className="text-xl font-black text-indigo-900 tracking-tight leading-none">순서대로 4장 선택</h2>
+                    <p className="text-[10px] text-neutral-400 font-bold mt-1">좌우로 밀어서 모든 사진을 확인하세요 ✨</p>
+                  </div>
+                  <button
+                    onClick={() => { if (selectedPhotosForLayout.length === 4) setStep(STEPS.RESULT); }}
+                    disabled={selectedPhotosForLayout.length !== 4}
+                    className={`px-8 py-3.5 rounded-[25px] font-black text-sm flex items-center gap-2 transition-all shadow-lg
+                      ${selectedPhotosForLayout.length === 4 ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-105 active:scale-95' : 'bg-neutral-200 text-neutral-400 opacity-50 cursor-not-allowed'}`}>
+                    선택 완료 <ChevronRight size={16} />
+                  </button>
+                </div>
+
+                <div className="flex flex-row gap-3 overflow-x-auto pb-4 custom-scrollbar px-2 -mx-2 items-center flex-nowrap scroll-smooth">
+                  {capturedPhotos.map((photo, i) => {
+                    const selIdx = selectedPhotosForLayout.indexOf(photo);
+                    const isSel = selIdx !== -1;
+                    return (
+                      <button key={i} onClick={() => togglePhotoSelection(photo)}
+                        className={`relative w-24 flex-shrink-0 aspect-[3/4] rounded-lg overflow-hidden shadow-md border-2 transition-all ${isSel ? 'border-indigo-600 scale-[1.05]' : 'border-white opacity-90 hover:opacity-100'}`}>
+                        <img src={photo} className="w-full h-full object-cover" />
+                        {isSel && (
+                          <div className="absolute inset-0 bg-indigo-600/10 flex items-center justify-center">
+                            <div className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black text-xs shadow-md ring-1 ring-white">
+                              {selIdx + 1}
+                            </div>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -548,9 +632,9 @@ function App() {
               </div>
 
               {/* ── Controls Panel (Bottom Slider) ── */}
-              <div className="w-full max-w-xl bg-white/90 backdrop-blur-3xl rounded-[40px] border border-neutral-100 shadow-2xl p-6 flex flex-col gap-4 mb-4">
+              <div className="w-full max-w-2xl bg-white/94 backdrop-blur-3xl rounded-[28px] border border-neutral-100 shadow-2xl p-4 flex flex-col gap-2.5 mb-2">
                 {/* Tabs Header */}
-                <div className="flex gap-8 border-b border-neutral-50 px-4 pb-2 mb-2">
+                <div className="flex gap-8 border-b border-neutral-50 px-4 pb-1 mb-1">
                   <button 
                     onClick={() => setResultPhase('frame')}
                     className={`pb-2 text-[14px] font-black transition-all relative ${resultPhase === 'frame' ? 'text-indigo-600' : 'text-neutral-300 hover:text-neutral-500'}`}>
@@ -578,14 +662,14 @@ function App() {
                       {INITIAL_FRAMES.map(f => (
                         <button key={f.id} 
                           onClick={() => { setSelectedFrame(f); }}
-                          className={`w-16 h-16 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
+                          className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
                           {f.image ? <img src={f.image} className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ backgroundColor: f.hex }} />}
                         </button>
                       ))}
                       {customFrames.map(f => (
                         <div key={f.id} className="relative group flex-shrink-0">
                           <button onClick={() => { setSelectedFrame(f); }} 
-                            className={`w-16 h-16 rounded-xl border-[3px] transition-all overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50'}`}>
+                            className={`w-14 h-14 rounded-xl border-[3px] transition-all overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50'}`}>
                             <img src={f.image} className="w-full h-full object-cover" />
                           </button>
                           <button onClick={() => deleteCustomFrame(f.id)} className="absolute -top-1 -right-1 bg-rose-500 text-white p-1 rounded-full ring-2 ring-white z-30 shadow-lg transition-transform hover:scale-110 active:scale-90">
@@ -598,10 +682,10 @@ function App() {
                     <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-4 pt-1 scroll-smooth flex-nowrap px-4 -mx-4">
                       {FILTERS.map(f => (
                         <button key={f.id} onClick={() => setActiveFilter(f)}
-                          className={`w-16 h-16 flex-shrink-0 rounded-xl border-[3px] transition-all overflow-hidden ${activeFilter.id === f.id ? 'border-rose-400 scale-105 shadow-lg z-20' : 'border-neutral-50'}`}>
+                          className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all overflow-hidden ${activeFilter.id === f.id ? 'border-rose-400 scale-105 shadow-lg z-20' : 'border-neutral-50'}`}>
                           <div className="relative w-full h-full">
                             <img src={capturedPhotos[0]} className="w-full h-full object-cover" style={{ filter: f.filter }} />
-                            <div className="absolute inset-x-0 bottom-0 bg-black/60 py-1 text-[8px] text-white font-black backdrop-blur-[1px]">{f.name}</div>
+                            <div className="absolute inset-x-0 bottom-0 bg-black/60 py-0.5 text-[7px] text-white font-black backdrop-blur-[1px]">{f.name}</div>
                           </div>
                         </button>
                       ))}
@@ -609,14 +693,18 @@ function App() {
                   )}
                 </div>
 
-                <div className="flex gap-3 justify-center pt-2 border-t border-neutral-50 px-2 mt-1">
+                <div className="flex gap-2 justify-center pt-2 border-t border-neutral-50 px-1 mt-0.5">
                   <button onClick={saveImage}
-                    className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[14px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg">
-                    <Download size={15} /> 저장하기
+                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
+                    <Download size={14} /> 저장하기
+                  </button>
+                  <button onClick={printImage}
+                    className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
+                    <Printer size={14} /> 인쇄하기
                   </button>
                   <button onClick={resetAll}
-                    className="flex-1 py-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 font-black text-[14px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2">
-                    <Home size={15} /> 홈으로
+                    className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5">
+                    <Home size={14} /> 홈으로
                   </button>
                 </div>
               </div>
