@@ -8,7 +8,7 @@ const sharedPhotoSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 10800 // 3 hours (3 * 60 * 60 = 10800 seconds)
+    expires: 600 // 10 minutes
   }
 });
 

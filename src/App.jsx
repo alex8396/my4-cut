@@ -384,7 +384,7 @@ function App() {
       const labelY = labelAreaTop + (labelAreaH - lh) / 2;
       ctx.drawImage(lc, 0, 0, lc.width, lc.height, 0, labelY, W, lh);
     }
-    return canvas.toDataURL('image/png');
+    return canvas.toDataURL('image/jpeg', 0.8);
   };
 
   const saveImage = async () => {
@@ -392,7 +392,7 @@ function App() {
     
     // Local Download only
     const a = document.createElement('a');
-    a.download = `shillim-4cut-${Date.now()}.png`;
+    a.download = `shillim-4cut-${Date.now()}.jpg`;
     a.href = dataUrl;
     a.click();
     
@@ -814,7 +814,7 @@ function App() {
                       className="w-40 h-40"
                     />
                   </div>
-                  <p className="text-[10px] text-neutral-400 font-bold">※ 3시간 동안만 유지됩니다</p>
+                  <p className="text-[10px] text-neutral-400 font-bold">※ 10분 동안만 유지됩니다</p>
                 </div>
               )}
 
