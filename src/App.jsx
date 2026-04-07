@@ -47,7 +47,7 @@ function FrameOverlay({ frame }) {
 }
 
 function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapture = false }) {
-  const isInitial = INITIAL_FRAMES.some(f => f.id === frame?.id);
+  const isInitial = INITIAL_FRAMES.some(f => f.id === frame?.id) || frame?.id === 'bokeh_frame.jpg';
   const dark = frame?.id === 'black';
   const now = new Date();
   const year = now.getFullYear();
@@ -346,7 +346,7 @@ function App() {
     }
 
     // 4. 브랜드/날짜 레이블 (단색 프레임에만 표시)
-    const isInitial = INITIAL_FRAMES.some(f => f.id === selectedFrame?.id);
+    const isInitial = INITIAL_FRAMES.some(f => f.id === selectedFrame?.id) || selectedFrame?.id === 'bokeh_frame.jpg';
     if (isInitial) {
       const dark = selectedFrame?.id === 'black';
       const now = new Date();
