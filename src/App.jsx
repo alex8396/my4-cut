@@ -28,60 +28,9 @@ const INITIAL_FRAMES = [
   { id: 'sunrise', name: '일출', image: '/frames/sunrise.png' },
 ];
 
-const FILTERS = [
-  { id: 'none', name: '기본', filter: 'none' },
-  { id: 'grayscale', name: '흑백', filter: 'grayscale(1)' },
-  { id: 'sepia', name: '세피아', filter: 'sepia(1)' },
-  { id: 'vivid', name: '선명하게', filter: 'saturate(1.5) brightness(1.1)' },
-  { id: 'warm', name: '따뜻하게', filter: 'sepia(0.3) saturate(1.2)' },
-  { id: 'cool', name: '시원하게', filter: 'hue-rotate(180deg) saturate(1.1)' },
-];
-
 // Helper: get best supported mimeType for recording
 const getVideoMime = () => {
   const types = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
-// Manual Pixel Filter Engine for iOS/Safari Compatibility
-const applyManualFilter = (ctx, filterId, width, height) => {
-  if (filterId === 'none') return;
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const data = imageData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    let r = data[i], g = data[i + 1], b = data[i + 2];
-    if (filterId === 'grayscale') {
-      const v = 0.299 * r + 0.587 * g + 0.114 * b;
-      data[i] = data[i+1] = data[i+2] = v;
-    } else if (filterId === 'sepia') {
-      data[i] = Math.min(255, (r * 0.393) + (g * 0.769) + (b * 0.189));
-      data[i+1] = Math.min(255, (r * 0.349) + (g * 0.686) + (b * 0.168));
-      data[i+2] = Math.min(255, (r * 0.272) + (g * 0.534) + (b * 0.131));
-    } else if (filterId === 'vivid') {
-      // Brightness 1.1 + Saturation 1.5
-      r = Math.min(255, r * 1.1); g = Math.min(255, g * 1.1); b = Math.min(255, b * 1.1);
-      const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-      data[i] = Math.min(255, Math.max(0, gray + 1.5 * (r - gray)));
-      data[i+1] = Math.min(255, Math.max(0, gray + 1.5 * (g - gray)));
-      data[i+2] = Math.min(255, Math.max(0, gray + 1.5 * (b - gray)));
-    } else if (filterId === 'warm') {
-      // Sepia 0.3 + Saturation 1.2
-      const sr = (r * 0.393) + (g * 0.769) + (b * 0.189);
-      const sg = (r * 0.349) + (g * 0.686) + (b * 0.168);
-      const sb = (r * 0.272) + (g * 0.534) + (b * 0.131);
-      r = r * 0.7 + sr * 0.3; g = g * 0.7 + sg * 0.3; b = b * 0.7 + sb * 0.3;
-      const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-      data[i] = Math.min(255, Math.max(0, gray + 1.2 * (r - gray)));
-      data[i+1] = Math.min(255, Math.max(0, gray + 1.2 * (g - gray)));
-      data[i+2] = Math.min(255, Math.max(0, gray + 1.2 * (b - gray)));
-    } else if (filterId === 'cool') {
-      // Blue tint swap + Saturation 1.1
-      const tr = b, tg = g, tb = r; // Simple swap for cool feel
-      const gray = 0.299 * tr + 0.587 * tg + 0.114 * tb;
-      data[i] = Math.min(255, Math.max(0, gray + 1.1 * (tr - gray)));
-      data[i+1] = Math.min(255, Math.max(0, gray + 1.1 * (tg - gray)));
-      data[i+2] = Math.min(255, Math.max(0, gray + 1.1 * (tb - gray)));
-    }
-  }
-  ctx.putImageData(imageData, 0, 0);
-};
   return types.find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
 };
 const getVideoExt = (mime) => mime.includes('mp4') ? 'mp4' : 'webm';
@@ -222,14 +171,12 @@ function FramePreview({ frame, photos, filter }) {
 function App() {
   const [step, setStep] = useState(STEPS.LAYOUT);
   const [selectedShots, setSelectedShots] = useState(SHOT_OPTIONS[0]);
-  const [activeFilter, setActiveFilter] = useState(FILTERS[0]);
   const [selectedFrame, setSelectedFrame] = useState(INITIAL_FRAMES[0]);
   const [timerSeconds] = useState(4);
   const [customFrames, setCustomFrames] = useState([]);
   const [capturedPhotos, setCapturedPhotos] = useState([]);
   const [countdown, setCountdown] = useState(null);
   const [selectedPhotosForLayout, setSelectedPhotosForLayout] = useState([]);
-  const [resultPhase, setResultPhase] = useState('frame');
   const [viewportSize, setViewportSize] = useState({ w: window.innerWidth, h: window.innerHeight });
   const [facingMode, setFacingMode] = useState('user');
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -375,10 +322,7 @@ function App() {
           // 2. 사진 그리기 (원본)
           tctx.drawImage(img, dx, dy, dw, dh);
 
-          // 3. 수동 픽셀 필터 연산 (iOS/Safari 호환성 100%)
-          applyManualFilter(tctx, activeFilter.id, SW, SH);
-
-          // 4. 필터링된 임시 캔버스를 메인 캔버스 슬롯 위치에 합성
+          // 3. 필터링된 임시 캔버스를 메인 캔버스 슬롯 위치에 합성
           ctx.drawImage(tempCanvas, slot.x, slot.y);
           
           resolve();
@@ -490,8 +434,7 @@ function App() {
     setCapturedPhotos([]);
     setSelectedPhotosForLayout([]);
     setSelectedFrame(INITIAL_FRAMES[0]);
-    setActiveFilter(FILTERS[0]);
-    setStep(STEPS.LAYOUT); setCountdown(null); setResultPhase('frame');
+    setStep(STEPS.LAYOUT); setCountdown(null);
   };
 
   const goBack = () => {
@@ -710,66 +653,42 @@ function App() {
                 })()}
               </div>
 
-              {/* ── Controls Panel (Bottom Slider) ── */}
+               {/* ── Controls Panel (Bottom Slider) ── */}
               <div className="w-full max-w-2xl bg-white/94 backdrop-blur-3xl rounded-[28px] border border-neutral-100 shadow-2xl p-4 flex flex-col gap-2.5 mb-2">
-                {/* Tabs Header */}
+                {/* Header */}
                 <div className="flex gap-8 border-b border-neutral-50 px-4 pb-1 mb-1">
-                  <button 
-                    onClick={() => setResultPhase('frame')}
-                    className={`pb-2 text-[14px] font-black transition-all relative ${resultPhase === 'frame' ? 'text-indigo-600' : 'text-neutral-300 hover:text-neutral-500'}`}>
+                  <div className="pb-2 text-[14px] font-black text-indigo-600 relative">
                     프레임 선택
-                    {resultPhase === 'frame' && <motion.div layoutId="activeTabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full" />}
-                  </button>
-                  <button 
-                    onClick={() => setResultPhase('filter')}
-                    className={`pb-2 text-[14px] font-black transition-all relative ${resultPhase === 'filter' ? 'text-rose-500' : 'text-neutral-300 hover:text-neutral-500'}`}>
-                    필터 선택
-                    {resultPhase === 'filter' && <motion.div layoutId="activeTabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-500 rounded-full" />}
-                  </button>
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full" />
+                  </div>
                   
-                  {resultPhase === 'frame' && (
-                    <label className="ml-auto text-[11px] font-bold text-neutral-400 cursor-pointer hover:text-indigo-600 flex items-center gap-1 bg-neutral-50 px-3 py-1.5 rounded-full self-center transition-all hover:scale-105 active:scale-95">
-                      <Plus size={12} /> 추가
-                      <input type="file" className="hidden" onChange={handleFrameUpload} accept="image/png,image/jpeg" />
-                    </label>
-                  )}
+                  <label className="ml-auto text-[11px] font-bold text-neutral-400 cursor-pointer hover:text-indigo-600 flex items-center gap-1 bg-neutral-50 px-3 py-1.5 rounded-full self-center transition-all hover:scale-105 active:scale-95">
+                    <Plus size={12} /> 추가
+                    <input type="file" className="hidden" onChange={handleFrameUpload} accept="image/png,image/jpeg" />
+                  </label>
                 </div>
 
                 <div className="relative">
-                  {resultPhase === 'frame' ? (
-                    <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-4 pt-1 scroll-smooth flex-nowrap px-4 -mx-4 group">
-                      {INITIAL_FRAMES.map(f => (
-                        <button key={f.id} 
-                          onClick={() => { setSelectedFrame(f); }}
-                          className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
-                          {f.image ? <img src={f.image} className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ backgroundColor: f.hex }} />}
+                  <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-4 pt-1 scroll-smooth flex-nowrap px-4 -mx-4 group">
+                    {INITIAL_FRAMES.map(f => (
+                      <button key={f.id} 
+                        onClick={() => { setSelectedFrame(f); }}
+                        className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
+                        {f.image ? <img src={f.image} className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ backgroundColor: f.hex }} />}
+                      </button>
+                    ))}
+                    {customFrames.map(f => (
+                      <div key={f.id} className="relative group flex-shrink-0">
+                        <button onClick={() => { setSelectedFrame(f); }} 
+                          className={`w-14 h-14 rounded-xl border-[3px] transition-all overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50'}`}>
+                          <img src={f.image} className="w-full h-full object-cover" />
                         </button>
-                      ))}
-                      {customFrames.map(f => (
-                        <div key={f.id} className="relative group flex-shrink-0">
-                          <button onClick={() => { setSelectedFrame(f); }} 
-                            className={`w-14 h-14 rounded-xl border-[3px] transition-all overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50'}`}>
-                            <img src={f.image} className="w-full h-full object-cover" />
-                          </button>
-                          <button onClick={() => deleteCustomFrame(f.id)} className="absolute -top-1 -right-1 bg-rose-500 text-white p-1 rounded-full ring-2 ring-white z-30 shadow-lg transition-transform hover:scale-110 active:scale-90">
-                            <Trash2 size={8} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-4 pt-1 scroll-smooth flex-nowrap px-4 -mx-4">
-                      {FILTERS.map(f => (
-                        <button key={f.id} onClick={() => setActiveFilter(f)}
-                          className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all overflow-hidden ${activeFilter.id === f.id ? 'border-rose-400 scale-105 shadow-lg z-20' : 'border-neutral-50'}`}>
-                          <div className="relative w-full h-full">
-                            <img src={capturedPhotos[0]} className="w-full h-full object-cover" style={{ filter: f.filter }} />
-                            <div className="absolute inset-x-0 bottom-0 bg-black/60 py-0.5 text-[7px] text-white font-black backdrop-blur-[1px]">{f.name}</div>
-                          </div>
+                        <button onClick={() => deleteCustomFrame(f.id)} className="absolute -top-1 -right-1 bg-rose-500 text-white p-1 rounded-full ring-2 ring-white z-30 shadow-lg transition-transform hover:scale-110 active:scale-90">
+                          <Trash2 size={8} />
                         </button>
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex gap-2 justify-center pt-2 border-t border-neutral-50 px-1 mt-0.5">
