@@ -390,7 +390,6 @@ function App() {
         
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
-            title: '신림 네컷 사진',
             files: [file]
           });
         } else {
