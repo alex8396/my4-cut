@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home, Printer, RefreshCcw } from 'lucide-react';
+import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home, Printer, RefreshCcw, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STEPS = { LAYOUT: 0, CAMERA: 1, SELECT: 2, RESULT: 3 };
@@ -190,6 +190,7 @@ function App() {
   const [resultPhase, setResultPhase] = useState('frame');
   const [viewportSize, setViewportSize] = useState({ w: window.innerWidth, h: window.innerHeight });
   const [facingMode, setFacingMode] = useState('user');
+  const [showSaveModal, setShowSaveModal] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -382,6 +383,7 @@ function App() {
     a.download = `shillim-4cut-${Date.now()}.png`;
     a.href = dataUrl;
     a.click();
+    setShowSaveModal(true);
   };
 
   const printImage = async () => {
@@ -744,6 +746,46 @@ function App() {
 
         </AnimatePresence>
       </main>
+
+      <AnimatePresence>
+        {showSaveModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white rounded-[40px] p-10 shadow-2xl max-w-sm w-full text-center flex flex-col items-center gap-6"
+            >
+              <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-inner">
+                <Check size={40} strokeWidth={3} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <h3 className="text-2xl font-black text-neutral-800 tracking-tight">저장이 완료되었습니다!</h3>
+                <p className="text-sm font-bold text-neutral-400">사진이 갤러리에 안전하게 저장되었습니다 ✨</p>
+              </div>
+              <div className="flex flex-col w-full gap-3 mt-2">
+                <button 
+                  onClick={() => setShowSaveModal(false)}
+                  className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:scale-105 active:scale-95 transition-all"
+                >
+                  닫기
+                </button>
+                <button 
+                  onClick={() => { setShowSaveModal(false); resetAll(); }}
+                  className="w-full py-4 bg-neutral-100 text-neutral-600 font-black rounded-2xl hover:bg-neutral-200 transition-all flex items-center justify-center gap-2"
+                >
+                  <Home size={18} /> 홈으로 가기
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="fixed top-0 left-0 w-full h-full -z-10 bg-[radial-gradient(#d1d5db_1.5px,transparent_1.5px)] [background-size:50px_50px] opacity-10" />
     </div>
