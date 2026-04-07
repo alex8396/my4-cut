@@ -318,14 +318,17 @@ function App() {
           const dx = slot.x + (SW - dw) / 2;
           const dy = slot.y + (SH - dh) / 2;
 
+          const currentFilter = activeFilter.filter || 'none';
           ctx.save();
-          ctx.beginPath(); // 반드시 beginPath로 초기화
+          if (currentFilter !== 'none') {
+            ctx.filter = currentFilter;
+          } else {
+            ctx.filter = 'none';
+          }
+          ctx.beginPath();
           ctx.rect(slot.x, slot.y, SW, SH);
           ctx.clip();
-
-          if (activeFilter.filter !== 'none') ctx.filter = activeFilter.filter;
           ctx.drawImage(img, dx, dy, dw, dh);
-          ctx.filter = 'none';
           ctx.restore();
           resolve();
         };
