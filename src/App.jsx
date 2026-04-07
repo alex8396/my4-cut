@@ -191,7 +191,18 @@ function App() {
   const [viewportSize, setViewportSize] = useState({ w: window.innerWidth, h: window.innerHeight });
 
   useEffect(() => {
-    const handleResize = () => setViewportSize({ w: window.innerWidth, h: window.innerHeight });
+    const handleResize = () => {
+      setViewportSize(prev => {
+        const currW = window.innerWidth;
+        const currH = window.innerHeight;
+        // 주소창이 사라지거나 나타나는 정도의 작은 높이 변화(약 60px 이하)는 무시하여 사진 크기 변동 방지
+        const isHeightStable = Math.abs(currH - prev.h) < 60;
+        const isWidthStable = Math.abs(currW - prev.w) < 5;
+        
+        if (isWidthStable && isHeightStable) return prev;
+        return { w: currW, h: currH };
+      });
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -444,7 +455,7 @@ function App() {
   };
 
   return (
-    <div className="h-screen bg-[#fdfcfb] font-sans text-neutral-900 overflow-hidden flex flex-col selection:bg-indigo-100">
+    <div className="h-[100dvh] bg-[#fdfcfb] font-sans text-neutral-900 overflow-hidden flex flex-col selection:bg-indigo-100">
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
@@ -589,46 +600,51 @@ function App() {
             <motion.div key="result" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
               className="flex flex-col items-center justify-start h-full w-full pt-[10px] pb-4 px-6 relative gap-2.5 overflow-hidden">
               
-              <div className="flex-1 w-full overflow-y-auto overflow-x-hidden flex flex-col items-center relative">
-                {/* ── Photo Preview (1080x1920 UI) ── */}
-                <div className="animate-in fade-in zoom-in duration-700 mt-4 relative" 
-                     style={{ 
-                       transform: `scale(${Math.min(1, (viewportSize.w - 40) / 1080, ((viewportSize.h || 800) - 260) / 1920)})`, 
-                       transformOrigin: 'top center',
-                       width: '1080px', height: '1920px', 
-                       flexShrink: 0,
-                       marginBottom: `${1920 * Math.min(1, (viewportSize.w - 40) / 1080, ((viewportSize.h || 800) - 260) / 1920) - 1920 + 20}px` 
-                     }}>
-                      <div id="photo-frame-result"
-                      className="shadow-[0_40px_100px_rgba(0,0,0,0.3)] relative overflow-hidden transition-transform duration-300 rounded-lg hover:-translate-y-2 mx-auto w-full h-full"
-                      style={{ backgroundColor: selectedFrame.hex || '#ffffff' }}>
-                      
-                      <div className="absolute inset-0 z-0 pointer-events-none">
-                        {selectedFrame?.image && <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />}
-                      </div>
-                      
-                      {selectedPhotosForLayout.map((p, i) => {
-                        const slots = [
-                          { left: '65px', top: '78px' },
-                          { left: '552px', top: '78px' },
-                          { left: '65px', top: '789px' },
-                          { left: '552px', top: '789px' }
-                        ];
-                        return (
-                          <div key={i} className="absolute overflow-hidden z-10" 
-                            style={{ ...slots[i], width: '463px', height: '689px', backgroundColor: selectedFrame.hex || '#ffffff' }}>
-                            <img src={p} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }} />
+              <div className="flex-1 w-full overflow-y-auto overflow-x-hidden flex flex-col items-center relative py-4 no-scrollbar">
+                {/* ── Photo Preview Container ── */}
+                {(() => {
+                  const scale = Math.min(1, (viewportSize.w - 48) / 1080, ((viewportSize.h || 800) - 280) / 1920);
+                  return (
+                    <div style={{ 
+                      width: 1080 * scale, 
+                      height: 1920 * scale, 
+                      flexShrink: 0,
+                      marginTop: 'auto',
+                      marginBottom: 'auto'
+                    }} className="relative group transition-all duration-300">
+                      <div className="absolute top-0 left-0 origin-top-left"
+                           style={{ transform: `scale(${scale})`, width: '1080px', height: '1920px' }}>
+                        <div id="photo-frame-result"
+                          className="shadow-[0_40px_100px_rgba(0,0,0,0.3)] relative overflow-hidden transition-transform duration-300 rounded-lg hover:-translate-y-2 mx-auto w-full h-full"
+                          style={{ backgroundColor: selectedFrame.hex || '#ffffff' }}>
+                          
+                          <div className="absolute inset-0 z-0 pointer-events-none">
+                            {selectedFrame?.image && <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />}
                           </div>
-                        );
-                      })}
-                      
-                      <div className="absolute left-0 right-0 z-10 flex justify-center items-center" style={{ top: '1478px', height: '442px' }}>
-                        <FrameLabel frame={selectedFrame} size1="80px" size2="46px" gap="20px" />
+                          
+                          {selectedPhotosForLayout.map((p, i) => {
+                            const slots = [
+                              { left: '65px', top: '78px' },
+                              { left: '552px', top: '78px' },
+                              { left: '65px', top: '789px' },
+                              { left: '552px', top: '789px' }
+                            ];
+                            return (
+                              <div key={i} className="absolute overflow-hidden z-10" 
+                                style={{ ...slots[i], width: '463px', height: '689px', backgroundColor: selectedFrame.hex || '#ffffff' }}>
+                                <img src={p} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }} />
+                              </div>
+                            );
+                          })}
+                          
+                          <div className="absolute left-0 right-0 z-10 flex justify-center items-center" style={{ top: '1478px', height: '442px' }}>
+                            <FrameLabel frame={selectedFrame} size1="80px" size2="46px" gap="20px" />
+                          </div>
+                        </div>
                       </div>
                     </div>
-                </div>
-                
-
+                  );
+                })()}
               </div>
 
               {/* ── Controls Panel (Bottom Slider) ── */}
