@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home, Printer, RefreshCcw, Check } from 'lucide-react';
+import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home, Printer, RefreshCcw, Check, QrCode } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STEPS = { LAYOUT: 0, CAMERA: 1, SELECT: 2, RESULT: 3 };
@@ -180,6 +180,8 @@ function App() {
   const [viewportSize, setViewportSize] = useState({ w: window.innerWidth, h: window.innerHeight });
   const [facingMode, setFacingMode] = useState('user');
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [photoId, setPhotoId] = useState(null);
   const [sharedImageUrl, setSharedImageUrl] = useState(null);
   const [isDownloadView, setIsDownloadView] = useState(false);
@@ -388,13 +390,20 @@ function App() {
   const saveImage = async () => {
     const dataUrl = await generateFinalImage();
     
-    // 1. Local Download
+    // Local Download only
     const a = document.createElement('a');
     a.download = `shillim-4cut-${Date.now()}.png`;
     a.href = dataUrl;
     a.click();
+    
+    setShowSaveModal(true);
+  };
 
-    // 2. Upload to Backend for QR
+  const handleShareQR = async () => {
+    if (isUploading) return;
+    setIsUploading(true);
+    const dataUrl = await generateFinalImage();
+    
     try {
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/shared`, {
         method: 'POST',
@@ -404,12 +413,14 @@ function App() {
       if (res.ok) {
         const data = await res.json();
         setPhotoId(data.id);
+        setShowQRModal(true);
       }
     } catch (error) {
       console.error('Failed to upload for QR:', error);
+      alert('서버 업로드에 실패했습니다. 다시 시도해 주세요.');
+    } finally {
+      setIsUploading(false);
     }
-    
-    setShowSaveModal(true);
   };
 
   const printImage = async () => {
@@ -749,6 +760,10 @@ function App() {
                       className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
                       <Download size={14} /> 저장하기
                     </button>
+                    <button onClick={handleShareQR} disabled={isUploading}
+                      className={`flex-1 py-2.5 ${isUploading ? 'bg-neutral-300' : 'bg-amber-400 hover:bg-amber-500'} text-amber-950 font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg`}>
+                      <QrCode size={14} /> {isUploading ? '업로드..' : 'QR 코드'}
+                    </button>
                     <button onClick={printImage}
                       className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
                       <Printer size={14} /> 인쇄하기
@@ -769,7 +784,7 @@ function App() {
       )}
 
       <AnimatePresence>
-        {showSaveModal && (
+        {(showSaveModal || showQRModal) && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm"
@@ -778,17 +793,20 @@ function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="bg-white rounded-[40px] p-10 shadow-2xl max-w-sm w-full text-center flex flex-col items-center gap-6"
             >
-              <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-inner">
-                <Check size={40} strokeWidth={3} />
+              <div className={`w-20 h-20 ${showQRModal ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'} rounded-full flex items-center justify-center shadow-inner`}>
+                {showQRModal ? <QrCode size={40} strokeWidth={3} /> : <Check size={40} strokeWidth={3} />}
               </div>
               <div className="flex flex-col gap-2">
-                <h3 className="text-2xl font-black text-neutral-800 tracking-tight">저장이 완료되었습니다!</h3>
-                <p className="text-sm font-bold text-neutral-400">사진이 갤러리에 안전하게 저장되었습니다 ✨</p>
+                <h3 className="text-2xl font-black text-neutral-800 tracking-tight">
+                  {showQRModal ? 'QR 코드가 생성되었습니다!' : '저장이 완료되었습니다!'}
+                </h3>
+                <p className="text-sm font-bold text-neutral-400">
+                  {showQRModal ? '스마트폰으로 스캔하여 다운로드하세요 ✨' : '사진이 갤러리에 안전하게 저장되었습니다 ✨'}
+                </p>
               </div>
 
-              {photoId && (
+              {showQRModal && photoId && (
                 <div className="flex flex-col items-center gap-3 p-4 bg-neutral-50 rounded-[30px] border border-neutral-100 w-full">
-                  <p className="text-[13px] font-black text-neutral-600">QR 코드로 바로 다운로드하세요!</p>
                   <div className="bg-white p-2 rounded-2xl shadow-inner border border-neutral-100">
                     <img 
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(window.location.origin + '/?id=' + photoId)}`} 
@@ -802,13 +820,13 @@ function App() {
 
               <div className="flex flex-col w-full gap-3 mt-2">
                 <button 
-                  onClick={() => setShowSaveModal(false)}
+                  onClick={() => { setShowSaveModal(false); setShowQRModal(false); }}
                   className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:scale-105 active:scale-95 transition-all"
                 >
                   닫기
                 </button>
                 <button 
-                  onClick={() => { setShowSaveModal(false); resetAll(); }}
+                  onClick={() => { setShowSaveModal(false); setShowQRModal(false); resetAll(); }}
                   className="w-full py-4 bg-neutral-100 text-neutral-600 font-black rounded-2xl hover:bg-neutral-200 transition-all flex items-center justify-center gap-2"
                 >
                   <Home size={18} /> 홈으로 가기
