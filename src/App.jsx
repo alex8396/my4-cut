@@ -311,25 +311,29 @@ function App() {
       await new Promise(resolve => {
         const img = new Image();
         img.onload = () => {
-          // object-cover 방식: 슬롯을 꽉 채우되 비율 유지
+          // object-cover 비율 계산
           const scale = Math.max(SW / img.width, SH / img.height);
           const dw = img.width * scale;
           const dh = img.height * scale;
-          const dx = slot.x + (SW - dw) / 2;
-          const dy = slot.y + (SH - dh) / 2;
+          // 임시 캔버스 내에서의 중앙 정렬 위치
+          const dx = (SW - dw) / 2;
+          const dy = (SH - dh) / 2;
 
-          const currentFilter = activeFilter.filter || 'none';
-          ctx.save();
-          if (currentFilter !== 'none') {
-            ctx.filter = currentFilter;
-          } else {
-            ctx.filter = 'none';
+          // 1. 해당 슬롯 크기의 임시 캔버스 생성
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = SW;
+          tempCanvas.height = SH;
+          const tctx = tempCanvas.getContext('2d');
+
+          // 2. 임시 캔버스에 필터 적용 후 사진 그리기
+          if (activeFilter.filter && activeFilter.filter !== 'none') {
+            tctx.filter = activeFilter.filter;
           }
-          ctx.beginPath();
-          ctx.rect(slot.x, slot.y, SW, SH);
-          ctx.clip();
-          ctx.drawImage(img, dx, dy, dw, dh);
-          ctx.restore();
+          tctx.drawImage(img, dx, dy, dw, dh);
+
+          // 3. 필터링된 임시 캔버스를 메인 캔버스 슬롯 위치에 합성
+          ctx.drawImage(tempCanvas, slot.x, slot.y);
+          
           resolve();
         };
         img.onerror = resolve;
