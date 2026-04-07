@@ -522,9 +522,9 @@ function App() {
                 )}
                 
                 {/* Badges */}
-                <div className="absolute top-6 left-6 flex items-center gap-3 z-30">
-                  <div className="bg-rose-500/90 backdrop-blur-md text-white px-5 py-2.5 rounded-full text-[10px] font-black tracking-widest flex items-center gap-2.5 animate-pulse shadow-xl">
-                    <div className="w-2.5 h-2.5 bg-white rounded-full" /> {capturedPhotos.length}/{selectedShots} 완료
+                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 w-full flex justify-center">
+                  <div className="bg-rose-500/90 backdrop-blur-md text-white px-8 py-4 rounded-full text-base font-black tracking-widest flex items-center gap-4 animate-pulse shadow-2xl border border-white/20">
+                    <div className="w-3.5 h-3.5 bg-white rounded-full" /> {capturedPhotos.length} / {selectedShots} 완료
                   </div>
                 </div>
               </div>
