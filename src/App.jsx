@@ -30,11 +30,11 @@ const INITIAL_FRAMES = [
 
 const FILTERS = [
   { id: 'none', name: '기본', filter: 'none' },
-  { id: 'grayscale', name: '흑백', filter: 'grayscale(100%)' },
-  { id: 'sepia', name: '세피아', filter: 'sepia(100%)' },
-  { id: 'vivid', name: '선명하게', filter: 'saturate(150%) brightness(110%)' },
-  { id: 'warm', name: '따뜻하게', filter: 'sepia(30%) saturate(120%)' },
-  { id: 'cool', name: '시원하게', filter: 'hue-rotate(180deg) saturate(110%)' },
+  { id: 'grayscale', name: '흑백', filter: 'grayscale(1)' },
+  { id: 'sepia', name: '세피아', filter: 'sepia(1)' },
+  { id: 'vivid', name: '선명하게', filter: 'saturate(1.5) brightness(1.1)' },
+  { id: 'warm', name: '따뜻하게', filter: 'sepia(0.3) saturate(1.2)' },
+  { id: 'cool', name: '시원하게', filter: 'hue-rotate(180deg) saturate(1.1)' },
 ];
 
 // Helper: get best supported mimeType for recording
@@ -311,7 +311,11 @@ function App() {
       const slot = slots[i];
       await new Promise(resolve => {
         const img = new Image();
-        img.onload = () => {
+        img.onload = async () => {
+          try {
+            if (img.decode) await img.decode();
+          } catch (e) {}
+
           // object-cover 비율 계산
           const scale = Math.max(SW / img.width, SH / img.height);
           const dw = img.width * scale;
@@ -326,9 +330,11 @@ function App() {
           tempCanvas.height = SH;
           const tctx = tempCanvas.getContext('2d');
 
-          // 2. 임시 캔버스에 필터 적용 후 사진 그리기
+          // 2. 임시 캔버스에 필터 적용 후 사진 그리기 (iOS/Safari 대응 강화)
           if (activeFilter.filter && activeFilter.filter !== 'none') {
             tctx.filter = activeFilter.filter;
+            // Safari의 캔버스 필터 엔진 활성화를 위해 더미 드로잉 수행
+            tctx.fillRect(0, 0, 0, 0);
           }
           tctx.drawImage(img, dx, dy, dw, dh);
 
