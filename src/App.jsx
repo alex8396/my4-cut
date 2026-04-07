@@ -562,7 +562,7 @@ function App() {
                   </button>
                 </div>
 
-                <div className="flex flex-row gap-3 overflow-x-auto pb-4 custom-scrollbar px-2 -mx-2 items-center flex-nowrap scroll-smooth">
+                <div className="flex flex-row gap-3 overflow-x-auto pb-4 custom-scrollbar px-2 -mx-2 items-center justify-center flex-nowrap scroll-smooth">
                   {capturedPhotos.map((photo, i) => {
                     const selIdx = selectedPhotosForLayout.indexOf(photo);
                     const isSel = selIdx !== -1;
