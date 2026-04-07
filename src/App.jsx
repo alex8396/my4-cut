@@ -40,6 +40,48 @@ const FILTERS = [
 // Helper: get best supported mimeType for recording
 const getVideoMime = () => {
   const types = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+// Manual Pixel Filter Engine for iOS/Safari Compatibility
+const applyManualFilter = (ctx, filterId, width, height) => {
+  if (filterId === 'none') return;
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    let r = data[i], g = data[i + 1], b = data[i + 2];
+    if (filterId === 'grayscale') {
+      const v = 0.299 * r + 0.587 * g + 0.114 * b;
+      data[i] = data[i+1] = data[i+2] = v;
+    } else if (filterId === 'sepia') {
+      data[i] = Math.min(255, (r * 0.393) + (g * 0.769) + (b * 0.189));
+      data[i+1] = Math.min(255, (r * 0.349) + (g * 0.686) + (b * 0.168));
+      data[i+2] = Math.min(255, (r * 0.272) + (g * 0.534) + (b * 0.131));
+    } else if (filterId === 'vivid') {
+      // Brightness 1.1 + Saturation 1.5
+      r = Math.min(255, r * 1.1); g = Math.min(255, g * 1.1); b = Math.min(255, b * 1.1);
+      const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+      data[i] = Math.min(255, Math.max(0, gray + 1.5 * (r - gray)));
+      data[i+1] = Math.min(255, Math.max(0, gray + 1.5 * (g - gray)));
+      data[i+2] = Math.min(255, Math.max(0, gray + 1.5 * (b - gray)));
+    } else if (filterId === 'warm') {
+      // Sepia 0.3 + Saturation 1.2
+      const sr = (r * 0.393) + (g * 0.769) + (b * 0.189);
+      const sg = (r * 0.349) + (g * 0.686) + (b * 0.168);
+      const sb = (r * 0.272) + (g * 0.534) + (b * 0.131);
+      r = r * 0.7 + sr * 0.3; g = g * 0.7 + sg * 0.3; b = b * 0.7 + sb * 0.3;
+      const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+      data[i] = Math.min(255, Math.max(0, gray + 1.2 * (r - gray)));
+      data[i+1] = Math.min(255, Math.max(0, gray + 1.2 * (g - gray)));
+      data[i+2] = Math.min(255, Math.max(0, gray + 1.2 * (b - gray)));
+    } else if (filterId === 'cool') {
+      // Blue tint swap + Saturation 1.1
+      const tr = b, tg = g, tb = r; // Simple swap for cool feel
+      const gray = 0.299 * tr + 0.587 * tg + 0.114 * tb;
+      data[i] = Math.min(255, Math.max(0, gray + 1.1 * (tr - gray)));
+      data[i+1] = Math.min(255, Math.max(0, gray + 1.1 * (tg - gray)));
+      data[i+2] = Math.min(255, Math.max(0, gray + 1.1 * (tb - gray)));
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+};
   return types.find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
 };
 const getVideoExt = (mime) => mime.includes('mp4') ? 'mp4' : 'webm';
@@ -330,15 +372,13 @@ function App() {
           tempCanvas.height = SH;
           const tctx = tempCanvas.getContext('2d');
 
-          // 2. 임시 캔버스에 필터 적용 후 사진 그리기 (iOS/Safari 대응 강화)
-          if (activeFilter.filter && activeFilter.filter !== 'none') {
-            tctx.filter = activeFilter.filter;
-            // Safari의 캔버스 필터 엔진 활성화를 위해 더미 드로잉 수행
-            tctx.fillRect(0, 0, 0, 0);
-          }
+          // 2. 사진 그리기 (원본)
           tctx.drawImage(img, dx, dy, dw, dh);
 
-          // 3. 필터링된 임시 캔버스를 메인 캔버스 슬롯 위치에 합성
+          // 3. 수동 픽셀 필터 연산 (iOS/Safari 호환성 100%)
+          applyManualFilter(tctx, activeFilter.id, SW, SH);
+
+          // 4. 필터링된 임시 캔버스를 메인 캔버스 슬롯 위치에 합성
           ctx.drawImage(tempCanvas, slot.x, slot.y);
           
           resolve();
