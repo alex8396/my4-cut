@@ -391,7 +391,6 @@ function App() {
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
             title: '신림 네컷 사진',
-            text: '제가 찍은 신림 네컷 사진을 확인해보세요!',
             files: [file]
           });
         } else {
