@@ -129,7 +129,7 @@ function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapt
   );
 }
 
-function FramePreview({ frame, photos, filter }) {
+function FramePreview({ frame, photos }) {
   const slots = [
     { left: '60px', top: '72px' },
     { left: '516px', top: '72px' },
@@ -153,7 +153,7 @@ function FramePreview({ frame, photos, filter }) {
         <div key={i} className="absolute overflow-hidden z-10 border border-neutral-100/50" 
           style={{ ...slot, width: `${SW}px`, height: `${SH}px`, backgroundColor: frame.hex || '#f8f8f8' }}>
           {photos[i] ? (
-            <img src={photos[i]} className="w-full h-full object-cover" style={{ filter: filter }} />
+            <img src={photos[i]} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-neutral-300 font-black text-6xl">
               {i + 1}
@@ -559,7 +559,7 @@ function App() {
               {/* Real-time Preview */}
               <div className="flex-1 w-full flex justify-center items-center overflow-hidden min-h-0">
                 <div style={{ height: '448px' }} className="flex justify-center items-start">
-                  <FramePreview frame={selectedFrame} photos={selectedPhotosForLayout} filter={activeFilter.filter} />
+                  <FramePreview frame={selectedFrame} photos={selectedPhotosForLayout} />
                 </div>
               </div>
 
@@ -638,7 +638,7 @@ function App() {
                             return (
                               <div key={i} className="absolute overflow-hidden z-10" 
                                 style={{ ...slots[i], width: '463px', height: '689px', backgroundColor: selectedFrame.hex || '#ffffff' }}>
-                                <img src={p} className="w-full h-full object-cover" style={{ filter: activeFilter.filter }} />
+                                <img src={p} className="w-full h-full object-cover" />
                               </div>
                             );
                           })}
