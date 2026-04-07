@@ -82,38 +82,7 @@ app.delete('/api/frames/:id', async (req, res) => {
   }
 });
 
-const SharedPhoto = require('./models/SharedPhoto');
 
-// 4. Save a shared photo for QR code downloading
-app.post('/api/shared', async (req, res) => {
-  try {
-    const { image } = req.body;
-    if (!image) {
-      return res.status(400).json({ error: 'Image is required' });
-    }
-    const newShared = new SharedPhoto({ image });
-    await newShared.save();
-    
-    res.status(201).json({ success: true, id: newShared._id.toString() });
-  } catch (error) {
-    console.error('Error saving shared photo:', error);
-    res.status(500).json({ error: 'Server Error' });
-  }
-});
-
-// 5. Get a shared photo by ID
-app.get('/api/shared/:id', async (req, res) => {
-  try {
-    const photo = await SharedPhoto.findById(req.params.id);
-    if (!photo) {
-      return res.status(404).json({ error: 'Photo not found' });
-    }
-    res.json({ success: true, image: photo.image });
-  } catch (error) {
-    console.error('Error fetching shared photo:', error);
-    res.status(500).json({ error: 'Server Error' });
-  }
-});
 
 app.listen(PORT, () => {
   console.log(`Backend server is running on port ${PORT}`);

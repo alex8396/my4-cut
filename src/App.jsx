@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home, Printer, RefreshCcw, Check, QrCode } from 'lucide-react';
+import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home, Printer, RefreshCcw, Check, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STEPS = { LAYOUT: 0, CAMERA: 1, SELECT: 2, RESULT: 3 };
@@ -180,26 +180,6 @@ function App() {
   const [viewportSize, setViewportSize] = useState({ w: window.innerWidth, h: window.innerHeight });
   const [facingMode, setFacingMode] = useState('user');
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const [showQRModal, setShowQRModal] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [photoId, setPhotoId] = useState(null);
-  const [sharedImageUrl, setSharedImageUrl] = useState(null);
-  const [isDownloadView, setIsDownloadView] = useState(false);
-
-  // Check for download ID in URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get('id');
-    if (id) {
-      setIsDownloadView(true);
-      fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/shared/${id}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) setSharedImageUrl(data.image);
-        })
-        .catch(err => console.error('Error fetching shared photo:', err));
-    }
-  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -388,38 +368,40 @@ function App() {
   };
 
   const saveImage = async () => {
-    const dataUrl = await generateFinalImage();
+    const dataUrl = await generateFinalImage('image/png');
     
     // Local Download only
     const a = document.createElement('a');
-    a.download = `shillim-4cut-${Date.now()}.jpg`;
+    a.download = `shillim-4cut-${Date.now()}.png`;
     a.href = dataUrl;
     a.click();
     
     setShowSaveModal(true);
   };
 
-  const handleShareQR = async () => {
-    if (isUploading) return;
-    setIsUploading(true);
-    const dataUrl = await generateFinalImage();
+  const handleShareImage = async () => {
+    const dataUrl = await generateFinalImage('image/jpeg', 0.8);
     
-    try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/shared`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: dataUrl })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPhotoId(data.id);
-        setShowQRModal(true);
+    if (navigator.share) {
+      try {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `shillim-4cut-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: '신림 네컷 사진',
+            text: '제가 찍은 신림 네컷 사진을 확인해보세요!',
+            files: [file]
+          });
+        } else {
+          alert('이 브라우저에서는 이미지 파일 직접 공유를 지원하지 않습니다. 저장하기 버튼을 이용해주세요.');
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') console.error('Error sharing photo:', error);
       }
-    } catch (error) {
-      console.error('Failed to upload for QR:', error);
-      alert('서버 업로드에 실패했습니다. 다시 시도해 주세요.');
-    } finally {
-      setIsUploading(false);
+    } else {
+      alert('이 기기 및 브라우저에서는 공유하기 기능을 지원하지 않습니다.');
     }
   };
 
@@ -511,36 +493,7 @@ function App() {
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
       
-      {isDownloadView ? (
-        <main className="flex-1 overflow-hidden relative flex flex-col items-center justify-center p-6 gap-8">
-          <h2 className="text-3xl font-black text-indigo-900 italic">사진 다운로드</h2>
-          {sharedImageUrl ? (
-            <>
-              <div className="w-full max-w-sm shadow-2xl rounded-2xl overflow-hidden border-8 border-white">
-                <img src={sharedImageUrl} className="w-full h-auto" alt="Shared" />
-              </div>
-              <button 
-                onClick={() => {
-                  const a = document.createElement('a');
-                  a.href = sharedImageUrl;
-                  a.download = `shillim-4cut-shared.png`;
-                  a.click();
-                }}
-                className="w-full max-w-sm py-5 bg-indigo-600 text-white font-black rounded-[30px] shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 text-lg"
-              >
-                <Download size={24} /> 스마트폰에 저장하기
-              </button>
-              <p className="text-neutral-400 font-bold text-sm">※ 이 사진은 3시간 후 자동으로 삭제됩니다.</p>
-            </>
-          ) : (
-            <p className="text-neutral-400 font-bold">사진을 불러오는 중이거나 이미 삭제되었습니다.</p>
-          )}
-          <button onClick={() => window.location.href = window.location.origin} className="mt-4 text-indigo-500 font-bold underline">
-            새로 촬영하기
-          </button>
-        </main>
-      ) : (
-        <main className="flex-1 overflow-hidden relative">
+      <main className="flex-1 overflow-hidden relative">
           {step > STEPS.LAYOUT && (
             <button 
               onClick={goBack}
@@ -760,9 +713,9 @@ function App() {
                       className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
                       <Download size={14} /> 저장하기
                     </button>
-                    <button onClick={handleShareQR} disabled={isUploading}
-                      className={`flex-1 py-2.5 ${isUploading ? 'bg-neutral-300' : 'bg-amber-400 hover:bg-amber-500'} text-amber-950 font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg`}>
-                      <QrCode size={14} /> {isUploading ? '업로드..' : 'QR 코드'}
+                    <button onClick={handleShareImage}
+                      className="flex-1 py-2.5 bg-amber-400 hover:bg-amber-500 text-amber-950 font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
+                      <Share2 size={14} /> 공유하기
                     </button>
                     <button onClick={printImage}
                       className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
@@ -777,14 +730,11 @@ function App() {
               </motion.div>
             )}
           </AnimatePresence>
-          {!isDownloadView && (
-            <div className="fixed top-0 left-0 w-full h-full -z-10 bg-[radial-gradient(#d1d5db_1.5px,transparent_1.5px)] [background-size:50px_50px] opacity-10" />
-          )}
-        </main>
-      )}
+          <div className="fixed top-0 left-0 w-full h-full -z-10 bg-[radial-gradient(#d1d5db_1.5px,transparent_1.5px)] [background-size:50px_50px] opacity-10" />
+      </main>
 
       <AnimatePresence>
-        {(showSaveModal || showQRModal) && (
+        {showSaveModal && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm"
@@ -793,40 +743,23 @@ function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="bg-white rounded-[40px] p-10 shadow-2xl max-w-sm w-full text-center flex flex-col items-center gap-6"
             >
-              <div className={`w-20 h-20 ${showQRModal ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'} rounded-full flex items-center justify-center shadow-inner`}>
-                {showQRModal ? <QrCode size={40} strokeWidth={3} /> : <Check size={40} strokeWidth={3} />}
+              <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-inner">
+                <Check size={40} strokeWidth={3} />
               </div>
               <div className="flex flex-col gap-2">
-                <h3 className="text-2xl font-black text-neutral-800 tracking-tight">
-                  {showQRModal ? 'QR 코드가 생성되었습니다!' : '저장이 완료되었습니다!'}
-                </h3>
-                <p className="text-sm font-bold text-neutral-400">
-                  {showQRModal ? '스마트폰으로 스캔하여 다운로드하세요 ✨' : '사진이 갤러리에 안전하게 저장되었습니다 ✨'}
-                </p>
+                <h3 className="text-2xl font-black text-neutral-800 tracking-tight">저장이 완료되었습니다!</h3>
+                <p className="text-sm font-bold text-neutral-400">사진이 갤러리에 안전하게 저장되었습니다 ✨</p>
               </div>
-
-              {showQRModal && photoId && (
-                <div className="flex flex-col items-center gap-3 p-4 bg-neutral-50 rounded-[30px] border border-neutral-100 w-full">
-                  <div className="bg-white p-2 rounded-2xl shadow-inner border border-neutral-100">
-                    <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(window.location.origin + '/?id=' + photoId)}`} 
-                      alt="QR Code"
-                      className="w-40 h-40"
-                    />
-                  </div>
-                  <p className="text-[10px] text-neutral-400 font-bold">※ 10분 동안만 유지됩니다</p>
-                </div>
-              )}
 
               <div className="flex flex-col w-full gap-3 mt-2">
                 <button 
-                  onClick={() => { setShowSaveModal(false); setShowQRModal(false); }}
+                  onClick={() => setShowSaveModal(false)}
                   className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:scale-105 active:scale-95 transition-all"
                 >
                   닫기
                 </button>
                 <button 
-                  onClick={() => { setShowSaveModal(false); setShowQRModal(false); resetAll(); }}
+                  onClick={() => { setShowSaveModal(false); resetAll(); }}
                   className="w-full py-4 bg-neutral-100 text-neutral-600 font-black rounded-2xl hover:bg-neutral-200 transition-all flex items-center justify-center gap-2"
                 >
                   <Home size={18} /> 홈으로 가기
