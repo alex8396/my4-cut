@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home, Printer } from 'lucide-react';
+import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home, Printer, RefreshCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STEPS = { LAYOUT: 0, CAMERA: 1, SELECT: 2, RESULT: 3 };
@@ -189,6 +189,7 @@ function App() {
   const [selectedPhotosForLayout, setSelectedPhotosForLayout] = useState([]);
   const [resultPhase, setResultPhase] = useState('frame');
   const [viewportSize, setViewportSize] = useState({ w: window.innerWidth, h: window.innerHeight });
+  const [facingMode, setFacingMode] = useState('user');
 
   useEffect(() => {
     const handleResize = () => {
@@ -499,43 +500,50 @@ function App() {
           {/* ── CAMERA ── */}
           {step === STEPS.CAMERA && (
             <motion.div key="camera" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="flex flex-col items-center h-full w-full justify-center p-2 text-center">
-              <div className="relative w-full max-w-xl bg-neutral-900 rounded-[60px] overflow-hidden shadow-2xl border-[16px] border-white ring-1 ring-neutral-100 aspect-[2/3] flex-shrink">
-                <Webcam audio={false} ref={webcamRef} screenshotFormat="image/jpeg" mirrored={true} className="w-full h-full object-cover" />
+              className="flex flex-col items-center h-full w-full justify-center p-4 text-center">
+              
+              <div className="relative w-full max-w-sm bg-neutral-900 rounded-[50px] overflow-hidden shadow-2xl border-[12px] border-white ring-1 ring-neutral-100 flex-shrink"
+                   style={{ aspectRatio: '463 / 689' }}>
+                <Webcam 
+                  audio={false} 
+                  ref={webcamRef} 
+                  screenshotFormat="image/jpeg" 
+                  mirrored={facingMode === 'user'} 
+                  videoConstraints={{ facingMode }}
+                  className="w-full h-full object-cover" 
+                />
                 <FrameOverlay frame={selectedFrame} />
+                
                 {countdown !== null && (
                   <motion.div initial={{ scale: 3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                     className="absolute inset-0 flex items-center justify-center z-20">
-                    <span className="text-[200px] font-black text-white drop-shadow-2xl italic">{countdown}</span>
+                    <span className="text-[140px] font-black text-white drop-shadow-2xl italic">{countdown}</span>
                   </motion.div>
                 )}
+                
                 {/* Badges */}
-                <div className="absolute top-10 left-10 flex items-center gap-3 z-30">
-                  <div className="bg-rose-500 text-white px-6 py-3 rounded-full text-[12px] font-black tracking-widest flex items-center gap-3 animate-pulse shadow-xl">
-                    <div className="w-3 h-3 bg-white rounded-full" /> {capturedPhotos.length}/{selectedShots} 완료
+                <div className="absolute top-6 left-6 flex items-center gap-3 z-30">
+                  <div className="bg-rose-500/90 backdrop-blur-md text-white px-5 py-2.5 rounded-full text-[10px] font-black tracking-widest flex items-center gap-2.5 animate-pulse shadow-xl">
+                    <div className="w-2.5 h-2.5 bg-white rounded-full" /> {capturedPhotos.length}/{selectedShots} 완료
                   </div>
                 </div>
               </div>
 
-              <div className="mt-8 flex gap-6 w-full max-w-xl items-center px-6">
-                <div className="flex-1 bg-white p-6 rounded-[40px] border-2 border-neutral-50 flex items-center justify-between px-8 shadow-sm">
-                  <div className="flex flex-col text-left">
-                    <span className="text-[10px] font-black text-neutral-300 mb-1">촬영 간격</span>
-                    <span className="text-3xl font-black text-indigo-600">{countdown ?? timerSeconds}초</span>
-                  </div>
-                  <button onClick={increaseTimer} className="bg-indigo-600 text-white px-5 py-3 rounded-2xl text-[12px] font-black shadow-lg hover:scale-105 active:scale-95 transition-all">2초 늘리기</button>
+              <div className="mt-10 flex gap-4 w-full max-w-sm items-center px-4">
+                <div className="flex gap-2 flex-1">
+                  <button onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')} 
+                          className="p-5 bg-white text-neutral-600 rounded-[30px] shadow-lg border border-neutral-100 hover:scale-105 active:scale-95 transition-all">
+                    <RefreshCcw size={22} />
+                  </button>
+                  <button onClick={increaseTimer} 
+                          className="flex-1 bg-indigo-600 text-white px-4 py-4 rounded-[30px] text-[13px] font-black shadow-lg hover:scale-105 active:scale-95 transition-all">
+                    2초 늘리기
+                  </button>
                 </div>
                 <button onClick={handleSnap} disabled={capturedPhotos.length >= selectedShots}
-                  className="px-10 py-7 bg-amber-400 text-amber-950 rounded-[40px] font-black text-xl shadow-xl active:scale-95">바로 촬영</button>
-              </div>
-
-              <div className="mt-6 flex gap-3 overflow-x-auto p-2 w-full max-w-2xl justify-center">
-                {[...Array(selectedShots)].map((_, i) => (
-                  <div key={i} className="w-16 aspect-[3/4] bg-neutral-50 rounded-xl overflow-hidden border-2 border-white shadow-md relative flex-shrink-0 ring-1 ring-neutral-100">
-                    {capturedPhotos[i] ? <img src={capturedPhotos[i]} className="w-full h-full object-cover" /> : <div className="flex h-full items-center justify-center opacity-10"><ImageIcon size={16} /></div>}
-                    <div className="absolute top-1 left-1 w-4 h-4 rounded-full bg-black/15 flex items-center justify-center text-[7px] font-black text-white">{i+1}</div>
-                  </div>
-                ))}
+                  className="px-10 py-5 bg-amber-400 text-amber-950 rounded-[30px] font-black text-lg shadow-xl active:scale-95 disabled:opacity-50 transition-all">
+                  바로 촬영
+                </button>
               </div>
             </motion.div>
           )}
