@@ -206,9 +206,15 @@ function App() {
     const fetchFrames = async () => {
       try {
         const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/frames`);
-        if (res.ok) { setCustomFrames(await res.json()); return; }
+        if (res.ok) {
+          const data = await res.json();
+          const initialImagePaths = INITIAL_FRAMES.map(f => f.image).filter(Boolean);
+          const newCustomFrames = data.filter(f => !initialImagePaths.includes(f.image));
+          setCustomFrames(newCustomFrames);
+          return;
+        }
       } catch {}
-      setCustomFrames(JSON.parse(localStorage.getItem('pickmem-custom-frames') || '[]'));
+      setCustomFrames([]);
     };
     fetchFrames();
   }, []);
@@ -426,36 +432,7 @@ function App() {
   };
 
 
-  const handleFrameUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const base64Image = ev.target.result;
-      const tempId = Date.now().toString();
-      const opt = { id: tempId, image: base64Image, name: '커스텀' };
-      setCustomFrames(prev => [opt, ...prev]);
-      setSelectedFrame(opt);
-      try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/frames`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64Image, name: '커스텀' })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setCustomFrames(prev => prev.map(f => f.id === tempId ? data.frame : f));
-          setSelectedFrame(data.frame);
-        }
-      } catch {}
-    };
-    reader.readAsDataURL(file);
-  };
 
-  const deleteCustomFrame = async (id) => {
-    setCustomFrames(prev => prev.filter(f => f.id !== id));
-    if (selectedFrame?.id === id) setSelectedFrame(INITIAL_FRAMES[0]);
-    try { await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/frames/${id}`, { method: 'DELETE' }); } catch {}
-  };
 
   const resetAll = () => {
     setCapturedPhotos([]);
@@ -677,10 +654,6 @@ function App() {
                       프레임 선택
                       <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full" />
                     </div>
-                    <label className="ml-auto text-[11px] font-bold text-neutral-400 cursor-pointer hover:text-indigo-600 flex items-center gap-1 bg-neutral-50 px-3 py-1.5 rounded-full self-center transition-all hover:scale-105 active:scale-95">
-                      <Plus size={12} /> 추가
-                      <input type="file" className="hidden" onChange={handleFrameUpload} accept="image/png,image/jpeg" />
-                    </label>
                   </div>
 
                   <div className="relative">
@@ -693,15 +666,11 @@ function App() {
                         </button>
                       ))}
                       {customFrames.map(f => (
-                        <div key={f.id} className="relative group flex-shrink-0">
-                          <button onClick={() => { setSelectedFrame(f); }} 
-                            className={`w-14 h-14 rounded-xl border-[3px] transition-all overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50'}`}>
-                            <img src={f.image} className="w-full h-full object-cover" />
-                          </button>
-                          <button onClick={() => deleteCustomFrame(f.id)} className="absolute -top-1 -right-1 bg-rose-500 text-white p-1 rounded-full ring-2 ring-white z-30 shadow-lg transition-transform hover:scale-110 active:scale-90">
-                            <Trash2 size={8} />
-                          </button>
-                        </div>
+                        <button key={f.id} 
+                          onClick={() => { setSelectedFrame(f); }}
+                          className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
+                          <img src={f.image} className="w-full h-full object-cover" />
+                        </button>
                       ))}
                     </div>
                   </div>
