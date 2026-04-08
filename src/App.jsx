@@ -146,9 +146,12 @@ function FramePreview({ frame, photos }) {
            transform: 'scale(0.25)', // 배율을 0.18에서 0.25로 확대
            transformOrigin: 'top center'
          }}>
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        {frame?.image && <img src={frame.image} className="w-full h-full object-cover opacity-90" />}
-      </div>
+      {/* 배경 프레임 (new 없는 경우) */}
+      {frame?.image && !frame.id?.includes('new') && (
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <img src={frame.image} className="w-full h-full object-cover opacity-90" />
+        </div>
+      )}
       {slots.map((slot, i) => (
         <div key={i} className="absolute overflow-hidden z-10 border border-neutral-100/50" 
           style={{ ...slot, width: `${SW}px`, height: `${SH}px`, backgroundColor: frame.hex || '#f8f8f8' }}>
@@ -161,6 +164,12 @@ function FramePreview({ frame, photos }) {
           )}
         </div>
       ))}
+      {/* 전면 프레임 (new 포함된 경우, 사진 위에) */}
+      {frame?.image && frame.id?.includes('new') && (
+        <div className="absolute inset-0 z-20 pointer-events-none">
+          <img src={frame.image} className="w-full h-full object-cover opacity-90" />
+        </div>
+      )}
       <div className="absolute left-0 right-0 z-10 flex justify-center items-center" style={{ top: '1380px', height: '412px' }}>
         <FrameLabel frame={frame} size1="80px" size2="46px" gap="20px" isCapture={true} />
       </div>
@@ -291,8 +300,10 @@ function App() {
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, W, H);
 
-    // 2. 이미지 프레임이면 배경으로 그리기 (사진보다 먼저)
-    if (selectedFrame.image) {
+    const isNewFrame = selectedFrame.image && selectedFrame.id?.includes('new');
+
+    // 2. 이미지 프레임이면 배경으로 그리기 (new 아닌 경우만 사진보다 먼저)
+    if (selectedFrame.image && !isNewFrame) {
       await new Promise(resolve => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
@@ -342,6 +353,17 @@ function App() {
         };
         img.onerror = resolve;
         img.src = selectedPhotosForLayout[i];
+      });
+    }
+
+    // 3-1. new 프레임이면 사진 위에 프레임 그리기
+    if (isNewFrame) {
+      await new Promise(resolve => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => { ctx.drawImage(img, 0, 0, W, H); resolve(); };
+        img.onerror = resolve;
+        img.src = selectedFrame.image;
       });
     }
 
@@ -626,9 +648,12 @@ function App() {
                             className="shadow-[0_40px_100px_rgba(0,0,0,0.3)] relative overflow-hidden transition-transform duration-300 rounded-lg hover:-translate-y-2 mx-auto w-full h-full"
                             style={{ backgroundColor: selectedFrame.hex || '#ffffff' }}>
                             
-                            <div className="absolute inset-0 z-0 pointer-events-none">
-                              {selectedFrame?.image && <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />}
-                            </div>
+                            {/* 배경 프레임 (new 없는 경우) */}
+                            {selectedFrame?.image && !selectedFrame.id?.includes('new') && (
+                              <div className="absolute inset-0 z-0 pointer-events-none">
+                                <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />
+                              </div>
+                            )}
                             
                             {selectedPhotosForLayout.map((p, i) => {
                               const slots = [
@@ -644,6 +669,13 @@ function App() {
                                 </div>
                               );
                             })}
+                            
+                            {/* 전면 프레임 (new 포함된 경우, 사진 위에) */}
+                            {selectedFrame?.image && selectedFrame.id?.includes('new') && (
+                              <div className="absolute inset-0 z-20 pointer-events-none">
+                                <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />
+                              </div>
+                            )}
                             
                             <div className="absolute left-0 right-0 z-10 flex justify-center items-center" style={{ top: '1478px', height: '442px' }}>
                               <FrameLabel frame={selectedFrame} size1="80px" size2="46px" gap="20px" />
