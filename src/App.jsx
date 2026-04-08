@@ -47,7 +47,8 @@ function FrameOverlay({ frame }) {
 }
 
 function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapture = false }) {
-  const isInitial = INITIAL_FRAMES.some(f => f.id === frame?.id) || frame?.id === 'bokeh_frame.jpg';
+  const showLabel = !frame?.id?.includes('new');
+  const isInitial = showLabel; // new 없는 모든 프레임에 레이블 표시
   const dark = frame?.id === 'black';
   const now = new Date();
   const year = now.getFullYear();
@@ -367,8 +368,8 @@ function App() {
       });
     }
 
-    // 4. 브랜드/날짜 레이블 (단색 프레임에만 표시)
-    const isInitial = INITIAL_FRAMES.some(f => f.id === selectedFrame?.id) || selectedFrame?.id === 'bokeh_frame.jpg';
+    // 4. 브랜드/날짜 레이블 (new 없는 모든 프레임에 표시)
+    const isInitial = !selectedFrame?.id?.includes('new');
     if (isInitial) {
       const dark = selectedFrame?.id === 'black';
       const now = new Date();
