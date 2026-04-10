@@ -536,9 +536,8 @@ function App() {
               <motion.div key="camera" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 className="fixed inset-0 bg-[#0a0a0a] z-40 flex flex-col items-center justify-center overflow-hidden">
                 
-                {/* Camera Container with Fixed Ratio */}
-                <div className="relative h-[88dvh] w-auto max-w-full bg-neutral-900 rounded-[40px] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)] border-2 border-white/10 flex-shrink"
-                     style={{ aspectRatio: '463 / 689' }}>
+                {/* Camera Container with Full FOV (Zoom Out effect) */}
+                <div className="relative h-[88dvh] w-full max-w-5xl bg-neutral-900 rounded-[40px] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)] border-2 border-white/10 flex-shrink flex items-center justify-center">
                   <Webcam 
                     audio={false} 
                     ref={webcamRef} 
@@ -546,14 +545,32 @@ function App() {
                     mirrored={facingMode === 'user'} 
                     videoConstraints={{ 
                       facingMode,
-                      aspectRatio: 463 / 689,
-                      width: { ideal: 1080 },
-                      height: { ideal: 1920 }
+                      width: { ideal: 1920 },
+                      height: { ideal: 1080 }
                     }}
-                    className="w-full h-full object-cover" 
+                    className="w-full h-full object-contain" 
                     style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
                   />
-                  <FrameOverlay frame={selectedFrame} />
+                  
+                  {/* Capture Area Guide Overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                    <div className="relative h-full flex items-center justify-center" style={{ aspectRatio: '463 / 689' }}>
+                      {/* Outside dimmed area */}
+                      <div className="absolute inset-0 border-[3px] border-white/40 rounded-[30px] shadow-[0_0_0_2000px_rgba(0,0,0,0.7)]" />
+                      
+                      {/* Corner Accents */}
+                      <div className="absolute top-10 right-10 w-8 h-8 border-t-4 border-r-4 border-white/60 rounded-tr-xl" />
+                      <div className="absolute top-10 left-10 w-8 h-8 border-t-4 border-l-4 border-white/60 rounded-tl-xl" />
+                      <div className="absolute bottom-10 right-10 w-8 h-8 border-b-4 border-r-4 border-white/60 rounded-br-xl" />
+                      <div className="absolute bottom-10 left-10 w-8 h-8 border-b-4 border-l-4 border-white/60 rounded-bl-xl" />
+                    </div>
+                  </div>
+
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                    <div className="relative h-full" style={{ aspectRatio: '463 / 689' }}>
+                      <FrameOverlay frame={selectedFrame} />
+                    </div>
+                  </div>
                   
                   {/* Countdown Overlay */}
                   <AnimatePresence>
