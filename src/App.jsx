@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home, Printer, RefreshCcw, Check, Share2 } from 'lucide-react';
+import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home, Printer, RefreshCcw, Check, Share2, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STEPS = { LAYOUT: 0, CAMERA: 1, SELECT: 2, RESULT: 3 };
@@ -130,7 +130,7 @@ function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapt
   );
 }
 
-function FramePreview({ frame, photos }) {
+function FramePreview({ frame, photos, scale = 0.25 }) {
   const slots = [
     { left: '60px', top: '72px' },
     { left: '516px', top: '72px' },
@@ -144,7 +144,7 @@ function FramePreview({ frame, photos }) {
          style={{ 
            width: '1008px', height: '1792px',
            backgroundColor: frame.hex || '#ffffff',
-           transform: 'scale(0.25)', // 배율을 0.18에서 0.25로 확대
+           transform: `scale(${scale})`,
            transformOrigin: 'top center'
          }}>
       {/* 배경 프레임 (new 없는 경우) */}
@@ -272,9 +272,15 @@ function App() {
   const handleSnap = () => {
     if (capturedPhotos.length >= selectedShots || isCapturing.current) return;
     isCapturing.current = true;
+    
     const imageSrc = webcamRef.current.getScreenshot();
-    if (imageSrc) setCapturedPhotos(prev => [...prev, imageSrc]);
-    setCountdown(null);
+    if (imageSrc) {
+      setCapturedPhotos(prev => {
+        if (prev.length >= selectedShots) return prev;
+        return [...prev, imageSrc];
+      });
+      setCountdown(null);
+    }
     isCapturing.current = false;
   };
 
@@ -499,7 +505,7 @@ function App() {
       `}</style>
       
       <main className="flex-1 overflow-hidden relative">
-          {step > STEPS.LAYOUT && (
+          {step > STEPS.LAYOUT && step !== STEPS.CAMERA && (
             <button 
               onClick={goBack}
               className="absolute top-6 left-6 z-50 p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg text-neutral-600 hover:text-indigo-600 hover:scale-110 active:scale-90 transition-all border border-neutral-100"
@@ -528,50 +534,76 @@ function App() {
 
             {step === STEPS.CAMERA && (
               <motion.div key="camera" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                className="flex flex-col items-center h-full w-full justify-center p-4 text-center">
+                className="fixed inset-0 bg-[#0a0a0a] z-40 flex flex-col items-center justify-center overflow-hidden">
                 
-                <div className="relative w-full max-w-sm bg-neutral-900 rounded-[50px] overflow-hidden shadow-2xl border-[12px] border-white ring-1 ring-neutral-100 flex-shrink"
+                {/* Camera Container with Fixed Ratio */}
+                <div className="relative h-[88dvh] w-auto max-w-full bg-neutral-900 rounded-[40px] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)] border-2 border-white/10 flex-shrink"
                      style={{ aspectRatio: '463 / 689' }}>
                   <Webcam 
                     audio={false} 
                     ref={webcamRef} 
                     screenshotFormat="image/jpeg" 
                     mirrored={facingMode === 'user'} 
-                    videoConstraints={{ facingMode }}
+                    videoConstraints={{ 
+                      facingMode,
+                      aspectRatio: 463 / 689,
+                      width: { ideal: 1080 },
+                      height: { ideal: 1920 }
+                    }}
                     className="w-full h-full object-cover" 
+                    style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
                   />
                   <FrameOverlay frame={selectedFrame} />
                   
-                  {countdown !== null && (
-                    <motion.div initial={{ scale: 3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                      className="absolute inset-0 flex items-center justify-center z-20">
-                      <span className="text-[140px] font-black text-white drop-shadow-2xl italic">{countdown}</span>
-                    </motion.div>
-                  )}
+                  {/* Countdown Overlay */}
+                  <AnimatePresence>
+                    {countdown !== null && (
+                      <motion.div initial={{ scale: 2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }}
+                        className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+                        <span className="text-[180px] font-black text-white drop-shadow-[0_10px_50px_rgba(0,0,0,0.5)] italic">{countdown}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Status Badge (Top Overlay) */}
+                  <div className="absolute top-8 left-1/2 -translate-x-1/2 z-30">
+                    <div className="bg-black/30 backdrop-blur-xl text-white px-6 py-2.5 rounded-full text-sm font-black tracking-[0.2em] flex items-center gap-3 border border-white/10 shadow-2xl">
+                      <div className="w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
+                      {Math.min(capturedPhotos.length + 1, selectedShots)} / {selectedShots} SHOT
+                    </div>
+                  </div>
                   
-                  <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 w-full flex justify-center">
-                    <div className="bg-rose-500/90 backdrop-blur-md text-white px-8 py-4 rounded-full text-base font-black tracking-widest flex items-center gap-4 animate-pulse shadow-2xl border border-white/20">
-                      <div className="w-3.5 h-3.5 bg-white rounded-full" /> {capturedPhotos.length} / {selectedShots} 완료
+                  {/* Controls (Bottom Overlay) */}
+                  <div className="absolute bottom-8 left-0 right-0 px-6 z-30 flex flex-col items-center gap-6">
+                    <div className="flex items-center gap-5 w-full max-w-xs justify-center">
+                      <button onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')} 
+                              className="p-5 bg-white/10 backdrop-blur-2xl text-white rounded-full border border-white/20 hover:bg-white/20 active:scale-90 transition-all shadow-2xl">
+                        <RefreshCcw size={24} />
+                      </button>
+                      
+                      <button onClick={handleSnap} disabled={capturedPhotos.length >= selectedShots}
+                        className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.3)] active:scale-90 disabled:opacity-50 transition-all group overflow-hidden">
+                        <div className="w-16 h-16 rounded-full border-4 border-neutral-900 flex items-center justify-center">
+                          <div className="w-12 h-12 bg-neutral-900 rounded-full group-hover:scale-90 transition-transform" />
+                        </div>
+                      </button>
+
+                      <button onClick={increaseTimer} 
+                              className="px-6 py-4 bg-white/10 backdrop-blur-2xl text-white rounded-full border border-white/20 hover:bg-white/20 active:scale-90 transition-all shadow-2xl flex items-center justify-center gap-1.5">
+                        <Plus size={16} strokeWidth={3} />
+                        <Clock size={24} />
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-10 flex gap-4 w-full max-w-sm items-center px-4">
-                  <div className="flex gap-2 flex-1">
-                    <button onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')} 
-                            className="p-5 bg-white text-neutral-600 rounded-[30px] shadow-lg border border-neutral-100 hover:scale-105 active:scale-95 transition-all">
-                      <RefreshCcw size={22} />
-                    </button>
-                    <button onClick={increaseTimer} 
-                            className="flex-1 bg-indigo-600 text-white px-4 py-4 rounded-[30px] text-[13px] font-black shadow-lg hover:scale-105 active:scale-95 transition-all">
-                      2초 늘리기
-                    </button>
-                  </div>
-                  <button onClick={handleSnap} disabled={capturedPhotos.length >= selectedShots}
-                    className="px-10 py-5 bg-amber-400 text-amber-950 rounded-[30px] font-black text-lg shadow-xl active:scale-95 disabled:opacity-50 transition-all">
-                    바로 촬영
-                  </button>
-                </div>
+                {/* Back Button (Outside main container for safety, but looks inside) */}
+                <button 
+                  onClick={goBack}
+                  className="absolute top-8 left-8 z-[100] p-4 bg-white/10 backdrop-blur-2xl rounded-full text-white hover:bg-white/20 active:scale-90 transition-all border border-white/10 shadow-2xl"
+                >
+                  <ChevronLeft size={28} />
+                </button>
               </motion.div>
             )}
 
@@ -584,10 +616,20 @@ function App() {
                   <p className="text-[11px] text-neutral-400 font-bold tracking-tight">선택한 순서대로 실시간 프레임에 배치됩니다 ✨</p>
                 </div>
 
-                <div className="flex-1 w-full flex justify-center items-center overflow-hidden min-h-0">
-                  <div style={{ height: '448px' }} className="flex justify-center items-start">
-                    <FramePreview frame={selectedFrame} photos={selectedPhotosForLayout} />
-                  </div>
+                <div className="flex-1 w-full flex justify-center items-center overflow-hidden min-h-0 py-2">
+                  {(() => {
+                    const availableH = (viewportSize.h || 800) - 340; // Approx height for selection bar and padding
+                    const maxScale = Math.min(
+                      0.5, 
+                      (viewportSize.w - 48) / 1008, 
+                      availableH / 1792
+                    );
+                    return (
+                      <div style={{ height: 1792 * maxScale }} className="flex justify-center items-start">
+                        <FramePreview frame={selectedFrame} photos={selectedPhotosForLayout} scale={maxScale} />
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="w-full max-w-5xl bg-white/50 backdrop-blur-xl border-t border-neutral-100/50 p-4 flex flex-col gap-4 flex-shrink-0">
