@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home, Printer, RefreshCcw, Check, Share2, Clock } from 'lucide-react';
+import { Download, Image as ImageIcon, ChevronRight, ChevronLeft, Plus, Trash2, Home, Printer, RefreshCcw, Check, Share2, Clock, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STEPS = { LAYOUT: 0, CAMERA: 1, SELECT: 2, RESULT: 3 };
@@ -190,6 +190,7 @@ function App() {
   const [viewportSize, setViewportSize] = useState({ w: window.innerWidth, h: window.innerHeight });
   const [facingMode, setFacingMode] = useState('user');
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [mirrorMode, setMirrorMode] = useState(true);
 
   useEffect(() => {
     const handleResize = () => {
@@ -483,10 +484,8 @@ function App() {
       setCapturedPhotos([]);
       setCountdown(null);
     } else if (step === STEPS.SELECT) {
-      // Re-shoot from scratch or keep previous photos? Keeping it simple: user goes back to camera but photos are kept?
-      // Actually, if they go back to camera, they might resume capturing. Let's not clear capturedPhotos here,
-      // or clear only selected layout photos.
       setStep(STEPS.CAMERA);
+      setCapturedPhotos([]);
       setSelectedPhotosForLayout([]);
     } else if (step === STEPS.RESULT) {
       setStep(STEPS.SELECT);
@@ -516,7 +515,29 @@ function App() {
           <AnimatePresence mode="wait">
             {step === STEPS.LAYOUT && (
               <motion.div key="layout" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="flex flex-col items-center justify-center h-full p-8 gap-12">
+                className="flex flex-col items-center justify-center h-full p-8 gap-12 relative">
+                
+                {/* Mirror Mode Toggle */}
+                <div className="absolute top-0 right-0 p-4">
+                  <div className="bg-white/80 backdrop-blur-xl border border-neutral-100 rounded-[24px] p-2 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center">
+                      <Settings size={20} />
+                    </div>
+                    <div className="flex flex-col pr-2">
+                      <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest leading-none mb-1">Mirror Mode</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-black ${mirrorMode ? 'text-indigo-600' : 'text-neutral-400'}`}>{mirrorMode ? 'ON' : 'OFF'}</span>
+                        <button 
+                          onClick={() => setMirrorMode(!mirrorMode)}
+                          className={`w-9 h-5 rounded-full transition-all relative ${mirrorMode ? 'bg-indigo-600' : 'bg-neutral-200'}`}
+                        >
+                          <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${mirrorMode ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <h3 className="text-3xl font-black mb-4 tracking-tight text-neutral-800">촬영 장수를 골라주세요</h3>
                 <div className="grid grid-cols-3 gap-8 w-full max-w-lg">
                   {SHOT_OPTIONS.map(num => (
@@ -543,10 +564,10 @@ function App() {
                     audio={false} 
                     ref={webcamRef} 
                     screenshotFormat="image/jpeg" 
-                    mirrored={facingMode === 'user'} 
+                    mirrored={mirrorMode} 
                     videoConstraints={{ facingMode }}
                     className="w-full h-full object-cover scale-x-[-1]" 
-                    style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
+                    style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none' }}
                   />
                   <FrameOverlay frame={selectedFrame} />
                   
