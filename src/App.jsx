@@ -25,7 +25,7 @@ const INITIAL_FRAMES = [
   { id: 'aurora', name: '오로라', image: '/frames/aurora_frame.png' },
   { id: 'sunset', name: '노을', image: '/frames/sunset_frame.png' },
   { id: 'yunseul', name: '윤슬', image: '/frames/yunseul.png' },
-  { id: 'sunrise', name: '일출', image: '/frames/sunrise.png' },
+  {id: 'sunrise', name: '일출', image: '/frames/sunrise.png' },
 ];
 
 // Helper: get best supported mimeType for recording
@@ -270,15 +270,33 @@ function App() {
     }
   }, [capturedPhotos.length, selectedShots]);
 
-  const handleSnap = () => {
+  const handleSnap = async () => {
     if (capturedPhotos.length >= selectedShots || isCapturing.current) return;
     isCapturing.current = true;
     
     const imageSrc = webcamRef.current.getScreenshot();
     if (imageSrc) {
+      let finalImage = imageSrc;
+      
+      // If mirrorMode is ON, react-webcam only flips the preview, not the data.
+      // We need to manually flip the data using a canvas.
+      if (mirrorMode) {
+        const img = new Image();
+        img.src = imageSrc;
+        await new Promise(resolve => img.onload = resolve);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(img, 0, 0);
+        finalImage = canvas.toDataURL('image/jpeg');
+      }
+
       setCapturedPhotos(prev => {
         if (prev.length >= selectedShots) return prev;
-        return [...prev, imageSrc];
+        return [...prev, finalImage];
       });
       setCountdown(null);
     }
@@ -566,8 +584,7 @@ function App() {
                     screenshotFormat="image/jpeg" 
                     mirrored={mirrorMode} 
                     videoConstraints={{ facingMode }}
-                    className="w-full h-full object-cover scale-x-[-1]" 
-                    style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none' }}
+                    className="w-full h-full object-cover" 
                   />
                   <FrameOverlay frame={selectedFrame} />
                   
