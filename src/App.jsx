@@ -536,21 +536,16 @@ function App() {
               <motion.div key="camera" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 className="fixed inset-0 bg-[#0a0a0a] z-40 flex flex-col items-center justify-center overflow-hidden">
                 
-                {/* Camera Container with Fixed Ratio (Only showing capture area) */}
-                <div className="relative h-[88dvh] w-auto max-w-full bg-neutral-900 rounded-[40px] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)] border-2 border-white/10 flex-shrink"
+                {/* Camera Container with Fixed Ratio */}
+                <div className="relative h-[82vh] w-auto max-w-full bg-neutral-900 rounded-[40px] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)] border-2 border-white/10 flex-shrink"
                      style={{ aspectRatio: '463 / 689' }}>
                   <Webcam 
                     audio={false} 
                     ref={webcamRef} 
                     screenshotFormat="image/jpeg" 
                     mirrored={facingMode === 'user'} 
-                    videoConstraints={{ 
-                      facingMode,
-                      aspectRatio: 463 / 689,
-                      width: { ideal: 1080 },
-                      height: { ideal: 1920 }
-                    }}
-                    className="w-full h-full object-cover" 
+                    videoConstraints={{ facingMode }}
+                    className="w-full h-full object-cover scale-x-[-1]" 
                     style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
                   />
                   <FrameOverlay frame={selectedFrame} />
