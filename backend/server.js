@@ -5,9 +5,28 @@ const cors = require('cors');
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// MongoDB Connection
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('✅ Connected to MongoDB Atlas'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
+
+// Get local IP address
+function getLocalIP() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+}
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -24,30 +43,30 @@ app.use(cors());
 app.use('/uploads', express.static(uploadsDir));
 
 // Routes
-// 1. Get all custom frames from public/frames directory
+// 0. Get Server Config (IP for QR)
+app.get('/api/config', (req, res) => {
+  res.json({ ip: getLocalIP(), port: PORT });
+});
+// 1. Get all frames (from disk only)
 app.get('/api/frames', (req, res) => {
   try {
     const framesDir = path.join(__dirname, '../public/frames');
-    
-    // Check if directory exists
     if (!fs.existsSync(framesDir)) {
       return res.json([]);
     }
 
     const files = fs.readdirSync(framesDir);
-    
-    // Filter out only image files
     const frames = files
       .filter(f => f.match(/\.(jpg|jpeg|png|gif)$/i))
       .map(file => ({
-        id: file,
-        name: file,
+        id: `disk-${file}`,
+        name: file.split('.')[0],
         image: `/frames/${file}`
       }));
     
     res.json(frames);
   } catch (error) {
-    console.error('Error fetching frames from disk:', error);
+    console.error('Error fetching frames:', error);
     res.status(500).json({ error: 'Server Error' });
   }
 });

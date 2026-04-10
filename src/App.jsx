@@ -211,8 +211,17 @@ function App() {
   const [mirrorMode, setMirrorMode] = useState(true);
   const [showQrModal, setShowQrModal] = useState(false);
   const [shareId, setShareId] = useState(null);
+  const [backendUrl, setBackendUrl] = useState(`http://${window.location.hostname}:5000`);
 
-  const BACKEND_URL = `${window.location.protocol}//${window.location.hostname}:5000`;
+  useEffect(() => {
+    // Get server configuration (actual IP)
+    fetch(`http://${window.location.hostname}:5000/api/config`)
+      .then(res => res.json())
+      .then(config => {
+        setBackendUrl(`http://${config.ip}:${config.port}`);
+      })
+      .catch(err => console.error("Config fetch failed", err));
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -330,7 +339,7 @@ function App() {
     }
   };
 
-  const generateFinalImage = async () => {
+  const generateFinalImage = async (type = 'image/png', quality = 1.0) => {
     const W = 1080, H = 1920;
     const canvas = document.createElement('canvas');
     canvas.width = W;
@@ -450,12 +459,12 @@ function App() {
       const labelY = labelAreaTop + (labelAreaH - lh) / 2;
       ctx.drawImage(lc, 0, 0, lc.width, lc.height, 0, labelY, W, lh);
     }
-    return canvas.toDataURL('image/jpeg', 0.8);
+    return canvas.toDataURL(type, quality);
   };
 
   const uploadToServer = async (imageData, id) => {
     try {
-      await fetch(`${BACKEND_URL}/api/upload`, {
+      await fetch(`${backendUrl}/api/upload`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -902,7 +911,7 @@ function App() {
               <div className="bg-neutral-50 p-6 rounded-[32px] border-2 border-dashed border-neutral-100 mb-2">
                 {shareId ? (
                   <QRCodeCanvas 
-                    value={`${BACKEND_URL}/v/${shareId}`} 
+                    value={`${backendUrl}/v/${shareId}`} 
                     size={200}
                     level="H"
                     includeMargin={false}
