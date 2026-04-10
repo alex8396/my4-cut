@@ -35,7 +35,7 @@ app.get('/api/frames', (req, res) => {
           mtime: stats.mtime
         };
       })
-      .sort((a, b) => b.mtime - a.mtime);
+      .sort((a, b) => a.mtime - b.mtime);
     
     res.json(frames.map(({ mtime, ...rest }) => rest));
   } catch (error) {

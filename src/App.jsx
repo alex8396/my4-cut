@@ -61,7 +61,7 @@ function FrameOverlay({ frame }) {
 }
 
 function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapture = false }) {
-  const showLabel = !frame?.id?.includes('new');
+  const showLabel = !frame?.id?.toLowerCase().includes('new');
   const isInitial = showLabel; // new 없는 모든 프레임에 레이블 표시
   const dark = frame?.id === 'black';
   const now = new Date();
@@ -162,7 +162,7 @@ function FramePreview({ frame, photos, scale = 0.25, mirrorMode }) {
            transformOrigin: 'top center'
          }}>
       {/* 배경 프레임 (new 없는 경우) */}
-      {frame?.image && !frame.id?.includes('new') && (
+      {frame?.image && !frame.id?.toLowerCase().includes('new') && (
         <div className="absolute inset-0 z-0 pointer-events-none">
           <img src={frame.image} className="w-full h-full object-cover opacity-90" />
         </div>
@@ -181,7 +181,7 @@ function FramePreview({ frame, photos, scale = 0.25, mirrorMode }) {
         </div>
       ))}
       {/* 전면 프레임 (new 포함된 경우, 사진 위에) */}
-      {frame?.image && frame.id?.includes('new') && (
+      {frame?.image && frame.id?.toLowerCase().includes('new') && (
         <div className="absolute inset-0 z-20 pointer-events-none">
           <img src={frame.image} className="w-full h-full object-cover" />
         </div>
@@ -322,7 +322,7 @@ function App() {
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, W, H);
 
-    const isNewFrame = selectedFrame.image && selectedFrame.id?.includes('new');
+    const isNewFrame = selectedFrame.image && selectedFrame.id?.toLowerCase().includes('new');
 
     // 2. 이미지 프레임이면 배경으로 그리기 (new 아닌 경우만 사진보다 먼저)
     if (selectedFrame.image && !isNewFrame) {
@@ -398,7 +398,7 @@ function App() {
     }
 
     // 4. 브랜드/날짜 레이블 (new 없는 모든 프레임에 표시)
-    const isInitial = !selectedFrame?.id?.includes('new');
+    const isInitial = !selectedFrame?.id?.toLowerCase().includes('new');
     if (isInitial) {
       const dark = selectedFrame?.id === 'black';
       const now = new Date();
@@ -743,7 +743,7 @@ function App() {
                             style={{ backgroundColor: selectedFrame.hex || '#ffffff' }}>
                             
                             {/* 배경 프레임 (new 없는 경우) */}
-                            {selectedFrame?.image && !selectedFrame.id?.includes('new') && (
+                            {selectedFrame?.image && !selectedFrame.id?.toLowerCase().includes('new') && (
                               <div className="absolute inset-0 z-0 pointer-events-none">
                                 <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />
                               </div>
@@ -766,9 +766,9 @@ function App() {
                             })}
                             
                             {/* 전면 프레임 (new 포함된 경우, 사진 위에) */}
-                            {selectedFrame?.image && selectedFrame.id?.includes('new') && (
+                            {selectedFrame?.image && selectedFrame.id?.toLowerCase().includes('new') && (
                               <div className="absolute inset-0 z-20 pointer-events-none">
-                                <img src={selectedFrame.image} className="w-full h-full object-cover opacity-90" />
+                                <img src={selectedFrame.image} className="w-full h-full object-cover" />
                               </div>
                             )}
                             
