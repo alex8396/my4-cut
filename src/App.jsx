@@ -13,12 +13,9 @@ import {
   Check, 
   Share2, 
   Clock, 
-  Settings,
-  QrCode,
-  X 
+  Settings 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { QRCodeCanvas } from 'qrcode.react';
 
 const STEPS = { LAYOUT: 0, CAMERA: 1, SELECT: 2, RESULT: 3 };
 const SHOT_OPTIONS = [4, 6, 8];
@@ -186,7 +183,7 @@ function FramePreview({ frame, photos, scale = 0.25, mirrorMode }) {
       {/* 전면 프레임 (new 포함된 경우, 사진 위에) */}
       {frame?.image && frame.id?.includes('new') && (
         <div className="absolute inset-0 z-20 pointer-events-none">
-          <img src={frame.image} className="w-full h-full object-cover opacity-90" />
+          <img src={frame.image} className="w-full h-full object-cover" />
         </div>
       )}
       <div className="absolute left-0 right-0 z-10 flex justify-center items-center" style={{ top: '1380px', height: '412px' }}>
@@ -209,19 +206,6 @@ function App() {
   const [facingMode, setFacingMode] = useState('user');
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [mirrorMode, setMirrorMode] = useState(true);
-  const [showQrModal, setShowQrModal] = useState(false);
-  const [shareId, setShareId] = useState(null);
-  const [backendUrl, setBackendUrl] = useState(`http://${window.location.hostname}:5000`);
-
-  useEffect(() => {
-    // Get server configuration (actual IP)
-    fetch(`http://${window.location.hostname}:5000/api/config`)
-      .then(res => res.json())
-      .then(config => {
-        setBackendUrl(`http://${config.ip}:${config.port}`);
-      })
-      .catch(err => console.error("Config fetch failed", err));
-  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -291,20 +275,6 @@ function App() {
       return () => clearTimeout(t);
     }
   }, [step, capturedPhotos.length, selectedShots, countdown, timerSeconds]);
-
-  // Trigger Final Image Generation and Upload when reaching RESULT step
-  useEffect(() => {
-    if (step === STEPS.RESULT && selectedPhotosForLayout.length === 4 && !shareId) {
-      const generateAndUpload = async () => {
-        const dataUrl = await generateFinalImage('image/jpeg', 0.8);
-        const uuid = crypto.randomUUID();
-        setShareId(uuid);
-        uploadToServer(dataUrl, uuid);
-      };
-      generateAndUpload();
-    }
-  }, [step, selectedPhotosForLayout]);
-
 
   // Move to SELECT when all shots done
   useEffect(() => {
@@ -460,20 +430,6 @@ function App() {
       ctx.drawImage(lc, 0, 0, lc.width, lc.height, 0, labelY, W, lh);
     }
     return canvas.toDataURL(type, quality);
-  };
-
-  const uploadToServer = async (imageData, id) => {
-    try {
-      await fetch(`${backendUrl}/api/upload`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ image: imageData, id }),
-      });
-    } catch (e) {
-      console.error("Upload failed", e);
-    }
   };
 
   const saveImage = async () => {
@@ -862,10 +818,6 @@ function App() {
                       className="flex-1 py-2.5 bg-amber-400 hover:bg-amber-500 text-amber-950 font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
                       <Share2 size={14} /> 공유하기
                     </button>
-                    <button onClick={() => setShowQrModal(true)}
-                      className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
-                      <QrCode size={14} /> QR로 받기
-                    </button>
                     <button onClick={printImage}
                       className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
                       <Printer size={14} /> 인쇄하기
@@ -881,64 +833,6 @@ function App() {
           </AnimatePresence>
           <div className="fixed top-0 left-0 w-full h-full -z-10 bg-[radial-gradient(#d1d5db_1.5px,transparent_1.5px)] [background-size:50px_50px] opacity-10" />
       </main>
-
-      <AnimatePresence>
-        {showQrModal && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-[40px] p-8 shadow-2xl max-w-sm w-full text-center flex flex-col items-center gap-6 relative"
-            >
-              <button 
-                onClick={() => setShowQrModal(false)}
-                className="absolute top-6 right-6 p-2 text-neutral-400 hover:text-neutral-600 transition-colors"
-              >
-                <X size={24} />
-              </button>
-
-              <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center shadow-inner mt-4">
-                <QrCode size={32} strokeWidth={2.5} />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <h3 className="text-2xl font-black text-neutral-800 tracking-tight">QR 코드로 사진 받기</h3>
-                <p className="text-xs font-bold text-neutral-400">휴대폰으로 스캔하여 사진을 저장하세요 ✨</p>
-              </div>
-
-              <div className="bg-neutral-50 p-6 rounded-[32px] border-2 border-dashed border-neutral-100 mb-2">
-                {shareId ? (
-                  <QRCodeCanvas 
-                    value={`${backendUrl}/v/${shareId}`} 
-                    size={200}
-                    level="H"
-                    includeMargin={false}
-                    className="rounded-xl"
-                  />
-                ) : (
-                  <div className="w-[200px] h-[200px] flex items-center justify-center text-neutral-300 italic font-bold">
-                    생성 중...
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col w-full gap-2">
-                <div className="text-[10px] font-black text-rose-500 bg-rose-50 py-2 rounded-xl border border-rose-100">
-                  ⚠️ 5분 뒤에 사진이 자동으로 삭제됩니다!
-                </div>
-                <button 
-                  onClick={() => setShowQrModal(false)}
-                  className="w-full py-4 bg-neutral-900 text-white font-black rounded-2xl shadow-lg mt-2 active:scale-95 transition-all"
-                >
-                  닫기
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <AnimatePresence>
         {showSaveModal && (

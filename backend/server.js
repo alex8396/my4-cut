@@ -25,23 +25,23 @@ app.get('/api/frames', (req, res) => {
     const files = fs.readdirSync(framesDir);
     const frames = files
       .filter(f => f.match(/\.(jpg|jpeg|png|gif)$/i))
-      .map(file => ({
-        id: `disk-${file}`,
-        name: file.split('.')[0],
-        image: `/frames/${file}`
-      }));
+      .map(file => {
+        const filePath = path.join(framesDir, file);
+        const stats = fs.statSync(filePath);
+        return {
+          id: `disk-${file}`,
+          name: file.split('.')[0],
+          image: `/frames/${file}`,
+          mtime: stats.mtime
+        };
+      })
+      .sort((a, b) => b.mtime - a.mtime);
     
-    res.json(frames);
+    res.json(frames.map(({ mtime, ...rest }) => rest));
   } catch (error) {
     console.error('Error fetching frames:', error);
     res.status(500).json({ error: 'Server Error' });
   }
-});
-
-app.listen(PORT, () => {
-  console.log(`Backend server is running on port ${PORT}`);
-});
-es.send(viewerHtml);
 });
 
 app.listen(PORT, () => {
