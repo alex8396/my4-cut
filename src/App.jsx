@@ -130,7 +130,7 @@ function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapt
   );
 }
 
-function FramePreview({ frame, photos, scale = 0.25 }) {
+function FramePreview({ frame, photos, scale = 0.25, mirrorMode }) {
   const slots = [
     { left: '60px', top: '72px' },
     { left: '516px', top: '72px' },
@@ -157,7 +157,8 @@ function FramePreview({ frame, photos, scale = 0.25 }) {
         <div key={i} className="absolute overflow-hidden z-10 border border-neutral-100/50" 
           style={{ ...slot, width: `${SW}px`, height: `${SH}px`, backgroundColor: frame.hex || '#f8f8f8' }}>
           {photos[i] ? (
-            <img src={photos[i]} className="w-full h-full object-cover" />
+            <img src={photos[i]} className="w-full h-full object-cover" 
+                 style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none' }} />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-neutral-300 font-black text-6xl">
               {i + 1}
@@ -270,33 +271,15 @@ function App() {
     }
   }, [capturedPhotos.length, selectedShots]);
 
-  const handleSnap = async () => {
+  const handleSnap = () => {
     if (capturedPhotos.length >= selectedShots || isCapturing.current) return;
     isCapturing.current = true;
     
     const imageSrc = webcamRef.current.getScreenshot();
     if (imageSrc) {
-      let finalImage = imageSrc;
-      
-      // If mirrorMode is ON, react-webcam only flips the preview, not the data.
-      // We need to manually flip the data using a canvas.
-      if (mirrorMode) {
-        const img = new Image();
-        img.src = imageSrc;
-        await new Promise(resolve => img.onload = resolve);
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(img, 0, 0);
-        finalImage = canvas.toDataURL('image/jpeg');
-      }
-
       setCapturedPhotos(prev => {
         if (prev.length >= selectedShots) return prev;
-        return [...prev, finalImage];
+        return [...prev, imageSrc];
       });
       setCountdown(null);
     }
@@ -370,7 +353,15 @@ function App() {
           const tctx = tempCanvas.getContext('2d');
 
           // 2. 사진 그리기 (원본)
-          tctx.drawImage(img, dx, dy, dw, dh);
+          if (mirrorMode) {
+            tctx.save();
+            tctx.translate(tempCanvas.width, 0);
+            tctx.scale(-1, 1);
+            tctx.drawImage(img, dx, dy, dw, dh);
+            tctx.restore();
+          } else {
+            tctx.drawImage(img, dx, dy, dw, dh);
+          }
 
           // 3. 필터링된 임시 캔버스를 메인 캔버스 슬롯 위치에 합성
           ctx.drawImage(tempCanvas, slot.x, slot.y);
@@ -582,9 +573,10 @@ function App() {
                     audio={false} 
                     ref={webcamRef} 
                     screenshotFormat="image/jpeg" 
-                    mirrored={mirrorMode} 
+                    mirrored={false} 
                     videoConstraints={{ facingMode }}
                     className="w-full h-full object-cover" 
+                    style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none' }}
                   />
                   <FrameOverlay frame={selectedFrame} />
                   
@@ -642,12 +634,20 @@ function App() {
 
             {step === STEPS.SELECT && (
               <motion.div key="select" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col items-center justify-start p-4 h-full w-full overflow-hidden">
+                className="flex flex-col items-center justify-start p-4 h-full w-full overflow-hidden relative z-50">
                 
                 <div className="flex-shrink-0 text-center mb-2">
                   <h2 className="text-2xl font-black italic tracking-tighter text-indigo-900 mb-0.5">순서대로 4장을 선택해주세요</h2>
                   <p className="text-[11px] text-neutral-400 font-bold tracking-tight">선택한 순서대로 실시간 프레임에 배치됩니다 ✨</p>
                 </div>
+
+                {/* Back Button for SELECT step */}
+                <button 
+                  onClick={goBack}
+                  className="absolute top-8 left-8 z-[100] p-4 bg-indigo-50/50 backdrop-blur-2xl rounded-full text-indigo-600 hover:bg-indigo-100 active:scale-90 transition-all border border-indigo-100 shadow-xl"
+                >
+                  <ChevronLeft size={28} />
+                </button>
 
                 <div className="flex-1 w-full flex justify-center items-center overflow-hidden min-h-0 py-2">
                   {(() => {
@@ -659,7 +659,7 @@ function App() {
                     );
                     return (
                       <div style={{ height: 1792 * maxScale }} className="flex justify-center items-start">
-                        <FramePreview frame={selectedFrame} photos={selectedPhotosForLayout} scale={maxScale} />
+                        <FramePreview frame={selectedFrame} photos={selectedPhotosForLayout} scale={maxScale} mirrorMode={mirrorMode} />
                       </div>
                     );
                   })()}
@@ -686,8 +686,9 @@ function App() {
                       const isSel = selIdx !== -1;
                       return (
                         <button key={i} onClick={() => togglePhotoSelection(photo)}
-                          className={`relative w-24 flex-shrink-0 aspect-[3/4] rounded-lg overflow-hidden shadow-md border-2 transition-all ${isSel ? 'border-indigo-600 scale-[1.05]' : 'border-white opacity-90 hover:opacity-100'}`}>
-                          <img src={photo} className="w-full h-full object-cover" />
+                          className={`relative w-24 flex-shrink-0 aspect-[3/4] rounded-lg overflow-hidden shadow-md border-2 transition-all pointer-events-auto ${isSel ? 'border-indigo-600 scale-[1.05]' : 'border-white opacity-90 hover:opacity-100'}`}>
+                          <img src={photo} className="w-full h-full object-cover pointer-events-none" 
+                               style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none' }} />
                           {isSel && (
                             <div className="absolute inset-0 bg-indigo-600/10 flex items-center justify-center">
                               <div className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black text-xs shadow-md ring-1 ring-white">
@@ -705,7 +706,7 @@ function App() {
 
             {step === STEPS.RESULT && (
               <motion.div key="result" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center justify-start h-full w-full pt-[10px] pb-4 px-6 relative gap-2.5 overflow-hidden">
+                className="flex flex-col items-center justify-start h-full w-full pt-[10px] pb-4 px-6 relative gap-2.5 overflow-hidden z-50">
                 
                 <div className="flex-1 w-full overflow-y-auto overflow-x-hidden flex flex-col items-center relative py-4 no-scrollbar">
                   {(() => {
@@ -741,7 +742,8 @@ function App() {
                               return (
                                 <div key={i} className="absolute overflow-hidden z-10" 
                                   style={{ ...slots[i], width: '463px', height: '689px', backgroundColor: selectedFrame.hex || '#ffffff' }}>
-                                  <img src={p} className="w-full h-full object-cover" />
+                                  <img src={p} className="w-full h-full object-cover" 
+                                       style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none' }} />
                                 </div>
                               );
                             })}
