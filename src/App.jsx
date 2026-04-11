@@ -611,7 +611,7 @@ function App() {
                   <div className="absolute bottom-8 left-0 right-0 px-6 z-30 flex flex-col items-center gap-6">
                     <div className="flex items-center gap-5 w-full max-w-xs justify-center">
                       <button onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')} 
-                              className="p-5 bg-white/10 backdrop-blur-2xl text-white rounded-full border border-white/20 hover:bg-white/20 active:scale-90 transition-all shadow-2xl">
+                              className="p-5 bg-white text-neutral-900 rounded-full border-2 border-neutral-900 hover:bg-neutral-50 active:scale-90 transition-all shadow-xl">
                         <RefreshCcw size={24} />
                       </button>
                       
@@ -623,7 +623,7 @@ function App() {
                       </button>
 
                       <button onClick={increaseTimer} 
-                              className="px-6 py-4 bg-white/10 backdrop-blur-2xl text-white rounded-full border border-white/20 hover:bg-white/20 active:scale-90 transition-all shadow-2xl flex items-center justify-center gap-1.5">
+                              className="px-6 py-4 bg-white text-neutral-900 rounded-full border-2 border-neutral-900 hover:bg-neutral-50 active:scale-90 transition-all shadow-xl flex items-center justify-center gap-1.5">
                         <Plus size={16} strokeWidth={3} />
                         <Clock size={24} />
                       </button>
@@ -634,7 +634,7 @@ function App() {
                 {/* Back Button (Outside main container for safety, but looks inside) */}
                 <button 
                   onClick={goBack}
-                  className="absolute top-8 left-8 z-[100] p-4 bg-white/10 backdrop-blur-2xl rounded-full text-white hover:bg-white/20 active:scale-90 transition-all border border-white/10 shadow-2xl"
+                  className="absolute top-8 left-8 z-[100] p-4 bg-white rounded-full text-neutral-900 hover:bg-neutral-50 active:scale-90 transition-all border-2 border-neutral-900 shadow-xl"
                 >
                   <ChevronLeft size={28} />
                 </button>
