@@ -497,8 +497,6 @@ function App() {
     setCapturedPhotos([]);
     setSelectedPhotosForLayout([]);
     setSelectedFrame(INITIAL_FRAMES[0]);
-    setShareId(null);
-    setShowQrModal(false);
     setStep(STEPS.LAYOUT); setCountdown(null);
   };
 
@@ -512,8 +510,6 @@ function App() {
       setCapturedPhotos([]);
       setSelectedPhotosForLayout([]);
     } else if (step === STEPS.RESULT) {
-      setShareId(null);
-      setShowQrModal(false);
       setStep(STEPS.SELECT);
     }
   };
@@ -530,14 +526,6 @@ function App() {
       `}</style>
       
       <main className="flex-1 overflow-hidden relative">
-          {step > STEPS.LAYOUT && step !== STEPS.CAMERA && (
-            <button 
-              onClick={goBack}
-              className="absolute top-6 left-6 z-50 p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg text-neutral-600 hover:text-indigo-600 hover:scale-110 active:scale-90 transition-all border border-neutral-100"
-            >
-              <ChevronLeft size={24} />
-            </button>
-          )}
           <AnimatePresence mode="wait">
             {step === STEPS.LAYOUT && (
               <motion.div key="layout" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -724,6 +712,14 @@ function App() {
             {step === STEPS.RESULT && (
               <motion.div key="result" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
                 className="flex flex-col items-center justify-start h-full w-full pt-[10px] pb-4 px-6 relative gap-2.5 overflow-hidden z-50">
+                
+                {/* Back Button for RESULT step */}
+                <button 
+                  onClick={goBack}
+                  className="absolute top-8 left-8 z-[100] p-4 bg-white/80 backdrop-blur-md rounded-full shadow-lg text-neutral-600 hover:text-indigo-600 hover:scale-110 active:scale-90 transition-all border border-neutral-100"
+                >
+                  <ChevronLeft size={28} />
+                </button>
                 
                 <div className="flex-1 w-full overflow-y-auto overflow-x-hidden flex flex-col items-center relative py-4 no-scrollbar">
                   {(() => {
