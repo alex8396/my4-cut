@@ -651,7 +651,7 @@ function App() {
 
             {step === STEPS.SELECT && (
               <motion.div key="select" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col items-center justify-start p-4 h-full w-full overflow-hidden relative z-50">
+                className="flex flex-col items-center justify-start p-4 h-full w-full overflow-hidden relative">
                 
                 <div className="flex-shrink-0 text-center mb-2">
                   <h2 className="text-2xl font-black italic tracking-tighter text-indigo-900 mb-0.5">순서대로 4장을 선택해주세요</h2>
