@@ -519,7 +519,7 @@ function App() {
   };
 
   return (
-    <div className="h-[100dvh] bg-[#fdfcfb] font-sans text-neutral-900 overflow-hidden flex flex-col selection:bg-indigo-100">
+    <div className="h-[100dvh] bg-[#fdfcfb] font-sans text-neutral-900 overflow-hidden flex flex-col selection:bg-neutral-200">
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
@@ -538,16 +538,16 @@ function App() {
                 {/* Mirror Mode Toggle */}
                 <div className="absolute top-0 right-0 p-4">
                   <div className="bg-white/80 backdrop-blur-xl border border-neutral-100 rounded-[24px] p-2 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center">
+                    <div className="w-10 h-10 bg-neutral-100 text-black rounded-full flex items-center justify-center">
                       <Settings size={20} />
                     </div>
                     <div className="flex flex-col pr-2">
                       <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest leading-none mb-1">Mirror Mode</span>
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-black ${mirrorMode ? 'text-indigo-600' : 'text-neutral-400'}`}>{mirrorMode ? 'ON' : 'OFF'}</span>
+                        <span className={`text-xs font-black ${mirrorMode ? 'text-black' : 'text-neutral-400'}`}>{mirrorMode ? 'ON' : 'OFF'}</span>
                         <button 
                           onClick={() => setMirrorMode(!mirrorMode)}
-                          className={`w-9 h-5 rounded-full transition-all relative ${mirrorMode ? 'bg-indigo-600' : 'bg-neutral-200'}`}
+                          className={`w-9 h-5 rounded-full transition-all relative ${mirrorMode ? 'bg-black' : 'bg-neutral-200'}`}
                         >
                           <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${mirrorMode ? 'translate-x-4' : 'translate-x-0'}`} />
                         </button>
@@ -562,7 +562,7 @@ function App() {
                     <button key={num}
                       onClick={() => { setSelectedShots(num); setStep(STEPS.CAMERA); }}
                       className={`aspect-square rounded-[40px] font-black text-5xl transition-all border-4 flex flex-col items-center justify-center gap-2
-                        ${selectedShots === num ? 'border-indigo-600 bg-white text-indigo-600 shadow-2xl scale-110' : 'border-neutral-100 bg-neutral-50 text-neutral-300 hover:bg-white'}`}>
+                        ${selectedShots === num ? 'border-black bg-white text-black shadow-2xl scale-110' : 'border-neutral-100 bg-neutral-50 text-neutral-300 hover:bg-white'}`}>
                       <span>{num}</span>
                       <span className="text-sm uppercase tracking-widest opacity-40">CUT</span>
                     </button>
@@ -602,7 +602,7 @@ function App() {
                   {/* Status Badge (Top Overlay) */}
                   <div className="absolute top-8 left-1/2 -translate-x-1/2 z-30">
                     <div className="bg-black/30 backdrop-blur-xl text-white px-6 py-2.5 rounded-full text-sm font-black tracking-[0.2em] flex items-center gap-3 border border-white/10 shadow-2xl">
-                      <div className="w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
+                      <div className="w-2 h-2 bg-black rounded-full animate-pulse" />
                       {capturedPhotos.length} / {selectedShots} SHOT
                     </div>
                   </div>
@@ -646,14 +646,14 @@ function App() {
                 className="flex flex-col items-center justify-start p-4 h-full w-full overflow-hidden relative z-50">
                 
                 <div className="flex-shrink-0 text-center mb-2">
-                  <h2 className="text-2xl font-black italic tracking-tighter text-indigo-900 mb-0.5">순서대로 4장을 선택해주세요</h2>
+                  <h2 className="text-2xl font-black italic tracking-tighter text-black mb-0.5">순서대로 4장을 선택해주세요</h2>
                   <p className="text-[11px] text-neutral-400 font-bold tracking-tight">선택한 순서대로 실시간 프레임에 배치됩니다 ✨</p>
                 </div>
 
                 {/* Back Button for SELECT step */}
                 <button 
                   onClick={goBack}
-                  className="absolute top-8 left-8 z-[100] p-4 bg-indigo-50/50 backdrop-blur-2xl rounded-full text-indigo-600 hover:bg-indigo-100 active:scale-90 transition-all border border-indigo-100 shadow-xl"
+                  className="absolute top-8 left-8 z-[100] p-4 bg-white/80 backdrop-blur-md rounded-full text-black hover:bg-neutral-100 active:scale-90 transition-all border border-black shadow-xl"
                 >
                   <ChevronLeft size={28} />
                 </button>
@@ -677,14 +677,14 @@ function App() {
                 <div className="w-full max-w-5xl bg-white/50 backdrop-blur-xl border-t border-neutral-100/50 p-4 flex flex-col gap-4 flex-shrink-0">
                   <div className="flex items-center justify-between px-2">
                     <div className="flex flex-col">
-                      <h2 className="text-xl font-black text-indigo-900 tracking-tight leading-none">순서대로 4장 선택</h2>
+                      <h2 className="text-xl font-black text-black tracking-tight leading-none">순서대로 4장 선택</h2>
                       <p className="text-[10px] text-neutral-400 font-bold mt-1">좌우로 밀어서 모든 사진을 확인하세요 ✨</p>
                     </div>
                     <button
                       onClick={() => { if (selectedPhotosForLayout.length === 4) setStep(STEPS.RESULT); }}
                       disabled={selectedPhotosForLayout.length !== 4}
                       className={`px-8 py-3.5 rounded-[25px] font-black text-sm flex items-center gap-2 transition-all shadow-lg
-                        ${selectedPhotosForLayout.length === 4 ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-105 active:scale-95' : 'bg-neutral-200 text-neutral-400 opacity-50 cursor-not-allowed'}`}>
+                        ${selectedPhotosForLayout.length === 4 ? 'bg-black text-white hover:bg-neutral-900 hover:scale-105 active:scale-95' : 'bg-neutral-200 text-neutral-400 opacity-50 cursor-not-allowed'}`}>
                       선택 완료 <ChevronRight size={16} />
                     </button>
                   </div>
@@ -695,12 +695,12 @@ function App() {
                       const isSel = selIdx !== -1;
                       return (
                         <button key={i} onClick={() => togglePhotoSelection(photo)}
-                          className={`relative w-24 flex-shrink-0 aspect-[3/4] rounded-lg overflow-hidden shadow-md border-2 transition-all pointer-events-auto ${isSel ? 'border-indigo-600 scale-[1.05]' : 'border-white opacity-90 hover:opacity-100'}`}>
+                          className={`relative w-24 flex-shrink-0 aspect-[3/4] rounded-lg overflow-hidden shadow-md border-2 transition-all pointer-events-auto ${isSel ? 'border-black scale-[1.05]' : 'border-white opacity-90 hover:opacity-100'}`}>
                           <img src={photo} className="w-full h-full object-cover pointer-events-none" 
                                style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none' }} />
                           {isSel && (
-                            <div className="absolute inset-0 bg-indigo-600/10 flex items-center justify-center">
-                              <div className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center font-black text-xs shadow-md ring-1 ring-white">
+                            <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
+                              <div className="w-6 h-6 bg-black text-white rounded-full flex items-center justify-center font-black text-xs shadow-md ring-1 ring-white">
                                 {selIdx + 1}
                               </div>
                             </div>
@@ -784,9 +784,9 @@ function App() {
 
                 <div className="w-full max-w-2xl bg-white/94 backdrop-blur-3xl rounded-[28px] border border-neutral-100 shadow-2xl p-4 flex flex-col gap-2.5 mb-2">
                   <div className="flex gap-8 border-b border-neutral-50 px-4 pb-1 mb-1">
-                    <div className="pb-2 text-[14px] font-black text-indigo-600 relative">
+                    <div className="pb-2 text-[14px] font-black text-black relative">
                       프레임 선택
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full" />
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black rounded-full" />
                     </div>
                   </div>
 
@@ -795,14 +795,14 @@ function App() {
                       {INITIAL_FRAMES.map(f => (
                         <button key={f.id} 
                           onClick={() => { setSelectedFrame(f); }}
-                          className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
+                          className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-black scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
                           {f.image ? <img src={f.image} className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ backgroundColor: f.hex }} />}
                         </button>
                       ))}
                       {customFrames.map(f => (
                         <button key={f.id} 
                           onClick={() => { setSelectedFrame(f); }}
-                          className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-indigo-600 scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
+                          className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-black scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
                           <img src={f.image} className="w-full h-full object-cover" />
                         </button>
                       ))}
@@ -811,15 +811,15 @@ function App() {
 
                   <div className="flex gap-2 justify-center pt-2 border-t border-neutral-50 px-1 mt-0.5">
                     <button onClick={saveImage}
-                      className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
+                      className="flex-1 py-2.5 bg-black hover:bg-neutral-900 text-white font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
                       <Download size={14} /> 저장하기
                     </button>
                     <button onClick={handleShareImage}
-                      className="flex-1 py-2.5 bg-amber-400 hover:bg-amber-500 text-amber-950 font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
+                      className="flex-1 py-2.5 bg-white hover:bg-neutral-50 text-black border-2 border-black font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
                       <Share2 size={14} /> 공유하기
                     </button>
                     <button onClick={printImage}
-                      className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
+                      className="flex-1 py-2.5 bg-white hover:bg-neutral-50 text-black border-2 border-black font-black text-[13px] rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg">
                       <Printer size={14} /> 인쇄하기
                     </button>
                     <button onClick={resetAll}
@@ -844,7 +844,7 @@ function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="bg-white rounded-[40px] p-10 shadow-2xl max-w-sm w-full text-center flex flex-col items-center gap-6"
             >
-              <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-inner">
+              <div className="w-20 h-20 bg-black text-white rounded-full flex items-center justify-center shadow-inner">
                 <Check size={40} strokeWidth={3} />
               </div>
               <div className="flex flex-col gap-2">
@@ -855,7 +855,7 @@ function App() {
               <div className="flex flex-col w-full gap-3 mt-2">
                 <button 
                   onClick={() => setShowSaveModal(false)}
-                  className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-lg hover:scale-105 active:scale-95 transition-all"
+                  className="w-full py-4 bg-black text-white font-black rounded-2xl shadow-lg hover:scale-105 active:scale-95 transition-all"
                 >
                   닫기
                 </button>
