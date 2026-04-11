@@ -494,29 +494,29 @@ function App() {
 
 
   const resetAll = () => {
-    setCapturedPhotos([]);
-    setSelectedPhotosForLayout([]);
-    setSelectedFrame(INITIAL_FRAMES[0]);
-    setShareId(null);
-    setShowQrModal(false);
-    setStep(STEPS.LAYOUT); setCountdown(null);
-  };
+  setCapturedPhotos([]);
+  setSelectedPhotosForLayout([]);
+  setSelectedFrame(INITIAL_FRAMES[0]);
+  setStep(STEPS.LAYOUT);
+  setCountdown(null);
+  setFacingMode('user');
+  setMirrorMode(true);
+  setSelectedShots(SHOT_OPTIONS[0]); // 선택 컷 수도 초기화
+};
 
   const goBack = () => {
-    if (step === STEPS.CAMERA) {
-      setStep(STEPS.LAYOUT);
-      setCapturedPhotos([]);
-      setCountdown(null);
-    } else if (step === STEPS.SELECT) {
-      setStep(STEPS.CAMERA);
-      setCapturedPhotos([]);
-      setSelectedPhotosForLayout([]);
-    } else if (step === STEPS.RESULT) {
-      setShareId(null);
-      setShowQrModal(false);
-      setStep(STEPS.SELECT);
-    }
-  };
+  if (step === STEPS.CAMERA) {
+    setStep(STEPS.LAYOUT);
+    setCapturedPhotos([]);
+    setCountdown(null);
+  } else if (step === STEPS.SELECT) {
+    setStep(STEPS.CAMERA);
+    setCapturedPhotos([]);
+    setSelectedPhotosForLayout([]);
+  } else if (step === STEPS.RESULT) {
+    setStep(STEPS.SELECT);
+  }
+};
 
   return (
     <div className="h-[100dvh] bg-[#fdfcfb] font-sans text-neutral-900 overflow-hidden flex flex-col selection:bg-indigo-100">
