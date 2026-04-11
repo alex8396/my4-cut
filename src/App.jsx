@@ -603,7 +603,7 @@ function App() {
                   <div className="absolute top-8 left-1/2 -translate-x-1/2 z-30">
                     <div className="bg-black/30 backdrop-blur-xl text-white px-6 py-2.5 rounded-full text-sm font-black tracking-[0.2em] flex items-center gap-3 border border-white/10 shadow-2xl">
                       <div className="w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
-                      {Math.min(capturedPhotos.length + 1, selectedShots)} / {selectedShots} SHOT
+                      {capturedPhotos.length} / {selectedShots} SHOT
                     </div>
                   </div>
                   
