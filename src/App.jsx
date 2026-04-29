@@ -435,7 +435,28 @@ function App() {
   const saveImage = async () => {
     const dataUrl = await generateFinalImage('image/png');
     
-    // Local Download only
+    // 모바일 기기에서는 갤러리(사진첩) 저장을 유도하기 위해 네이티브 공유(Web Share API) 호출
+    if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+      try {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `shillim-4cut-${Date.now()}.png`, { type: 'image/png' });
+        
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: '신림 네컷'
+          });
+          setShowSaveModal(true);
+          return;
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') console.error('Error saving photo:', error);
+        return; // 사용자가 취소한 경우 중단
+      }
+    }
+
+    // PC이거나 지원하지 않는 경우 기존 파일 다운로드
     const a = document.createElement('a');
     a.download = `shillim-4cut-${Date.now()}.png`;
     a.href = dataUrl;
