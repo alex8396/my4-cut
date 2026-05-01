@@ -435,8 +435,11 @@ function App() {
   const saveImage = async () => {
     const dataUrl = await generateFinalImage('image/png');
     
-    // 모바일 기기에서는 갤러리(사진첩) 저장을 유도하기 위해 네이티브 공유(Web Share API) 호출
-    if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+    // 모바일 기기(아이패드 등 태블릿 포함)에서는 갤러리(사진첩) 저장을 유도하기 위해 네이티브 공유(Web Share API) 호출
+    const isMobileOrTablet = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || 
+                             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (navigator.share && isMobileOrTablet) {
       try {
         const response = await fetch(dataUrl);
         const blob = await response.blob();
