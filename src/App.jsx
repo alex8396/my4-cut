@@ -13,12 +13,26 @@ import {
   Check, 
   Share2, 
   Clock, 
-  Settings 
+  Settings,
+  Sparkles,
+  Wand2,
+  Sliders
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STEPS = { LAYOUT: 0, CAMERA: 1, SELECT: 2, RESULT: 3 };
 const SHOT_OPTIONS = [4, 6, 8];
+
+const PHOTO_FILTERS = [
+  { id: 'original', name: '원본', cssFilter: 'none' },
+  { id: 'grayscale', name: '흑백', cssFilter: 'grayscale(100%) contrast(110%)' },
+  { id: 'light', name: '라이트', cssFilter: 'brightness(115%) contrast(95%) saturate(105%)' },
+  { id: 'cool', name: '쿨', cssFilter: 'hue-rotate(15deg) saturate(110%) brightness(105%)' },
+  { id: 'warm', name: '웜', cssFilter: 'sepia(30%) saturate(130%) brightness(105%)' },
+  { id: 'vivid', name: '비비드', cssFilter: 'saturate(160%) contrast(115%)' },
+  { id: 'retro', name: '레트로', cssFilter: 'sepia(45%) contrast(90%) brightness(110%) hue-rotate(-10deg)' },
+  { id: 'soft', name: '소프트', cssFilter: 'contrast(90%) brightness(115%) saturate(90%)' },
+];
 
 const INITIAL_FRAMES = [
   { id: 'white', name: '화이트', hex: '#ffffff' },
@@ -60,8 +74,8 @@ function FrameOverlay({ frame }) {
   );
 }
 
-function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapture = false }) {
-  const showLabel = !frame?.id?.toLowerCase().includes('new');
+function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapture = false, showBrandLabel = true }) {
+  const showLabel = showBrandLabel && !frame?.id?.toLowerCase().includes('new');
   const isInitial = showLabel; // new 없는 모든 프레임에 레이블 표시
   const dark = frame?.id === 'black';
   const now = new Date();
@@ -144,7 +158,7 @@ function FrameLabel({ frame, size1 = '26px', size2 = '15px', gap = '6px', isCapt
   );
 }
 
-function FramePreview({ frame, photos, scale = 0.25, mirrorMode }) {
+function FramePreview({ frame, photos, scale = 0.25, mirrorMode, filter, showBrandLabel = true }) {
   const slots = [
     { left: '60px', top: '72px' },
     { left: '516px', top: '72px' },
@@ -172,7 +186,7 @@ function FramePreview({ frame, photos, scale = 0.25, mirrorMode }) {
           style={{ ...slot, width: `${SW}px`, height: `${SH}px`, backgroundColor: frame.hex || '#f8f8f8' }}>
           {photos[i] ? (
             <img src={photos[i]} className="w-full h-full object-cover" 
-                 style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none' }} />
+                 style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none', filter: filter?.cssFilter || 'none' }} />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-neutral-300 font-black text-6xl">
               {i + 1}
@@ -187,7 +201,7 @@ function FramePreview({ frame, photos, scale = 0.25, mirrorMode }) {
         </div>
       )}
       <div className="absolute left-0 right-0 z-10 flex justify-center items-center" style={{ top: '1380px', height: '412px' }}>
-        <FrameLabel frame={frame} size1="80px" size2="46px" gap="20px" isCapture={true} />
+        <FrameLabel frame={frame} size1="80px" size2="46px" gap="20px" isCapture={true} showBrandLabel={showBrandLabel} />
       </div>
     </div>
   );
@@ -197,6 +211,9 @@ function App() {
   const [step, setStep] = useState(STEPS.LAYOUT);
   const [selectedShots, setSelectedShots] = useState(SHOT_OPTIONS[0]);
   const [selectedFrame, setSelectedFrame] = useState(INITIAL_FRAMES[0]);
+  const [selectedFilter, setSelectedFilter] = useState(PHOTO_FILTERS[0]);
+  const [activeResultTab, setActiveResultTab] = useState('frame'); // 'frame' | 'filter'
+  const [showBrandLabel, setShowBrandLabel] = useState(true);
   const [timerSeconds] = useState(4);
   const [customFrames, setCustomFrames] = useState([]);
   const [capturedPhotos, setCapturedPhotos] = useState([]);
@@ -365,6 +382,9 @@ function App() {
           tempCanvas.height = SH;
           const tctx = tempCanvas.getContext('2d');
 
+          // 필터 효과 적용
+          tctx.filter = selectedFilter?.cssFilter || 'none';
+
           // 2. 사진 그리기 (원본)
           if (mirrorMode) {
             tctx.save();
@@ -397,8 +417,8 @@ function App() {
       });
     }
 
-    // 4. 브랜드/날짜 레이블 (new 없는 모든 프레임에 표시)
-    const isInitial = !selectedFrame?.id?.toLowerCase().includes('new');
+    // 4. 브랜드/날짜 레이블 (new 없는 모든 프레임 + showBrandLabel이 true인 경우 표시)
+    const isInitial = showBrandLabel && !selectedFrame?.id?.toLowerCase().includes('new');
     if (isInitial) {
       const dark = selectedFrame?.id === 'black';
       const now = new Date();
@@ -521,6 +541,9 @@ function App() {
     setCapturedPhotos([]);
     setSelectedPhotosForLayout([]);
     setSelectedFrame(INITIAL_FRAMES[0]);
+    setSelectedFilter(PHOTO_FILTERS[0]);
+    setActiveResultTab('frame');
+    setShowBrandLabel(true);
     setStep(STEPS.LAYOUT);
     setCountdown(null);
     setFacingMode('user');
@@ -559,8 +582,28 @@ function App() {
               <motion.div key="layout" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="flex flex-col items-center justify-center h-full p-8 gap-12 relative">
                 
-                {/* Mirror Mode Toggle */}
-                <div className="absolute top-0 right-0 p-4">
+                {/* Top Options Bar */}
+                <div className="absolute top-0 right-0 p-4 flex gap-3 items-center">
+                  {/* Brand Label Toggle */}
+                  <div className="bg-white/80 backdrop-blur-xl border border-neutral-100 rounded-[24px] p-2 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="w-10 h-10 bg-neutral-100 text-black rounded-full flex items-center justify-center">
+                      <ImageIcon size={20} />
+                    </div>
+                    <div className="flex flex-col pr-2">
+                      <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest leading-none mb-1">신림네컷 / 날짜</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-black ${showBrandLabel ? 'text-black' : 'text-neutral-400'}`}>{showBrandLabel ? 'ON' : 'OFF'}</span>
+                        <button 
+                          onClick={() => setShowBrandLabel(!showBrandLabel)}
+                          className={`w-9 h-5 rounded-full transition-all relative ${showBrandLabel ? 'bg-black' : 'bg-neutral-200'}`}
+                        >
+                          <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${showBrandLabel ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mirror Mode Toggle */}
                   <div className="bg-white/80 backdrop-blur-xl border border-neutral-100 rounded-[24px] p-2 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow">
                     <div className="w-10 h-10 bg-neutral-100 text-black rounded-full flex items-center justify-center">
                       <Settings size={20} />
@@ -609,7 +652,7 @@ function App() {
                     mirrored={false} 
                     videoConstraints={{ facingMode }}
                     className="w-full h-full object-cover" 
-                    style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none' }}
+                    style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none', filter: selectedFilter?.cssFilter || 'none' }}
                   />
                   <FrameOverlay frame={selectedFrame} />
                   
@@ -633,6 +676,7 @@ function App() {
                   
                   {/* Controls (Bottom Overlay) */}
                   <div className="absolute bottom-8 left-0 right-0 px-6 z-30 flex flex-col items-center gap-6">
+
                     <div className="flex items-center gap-5 w-full max-w-xs justify-center">
                       <button onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')} 
                               className="p-5 bg-white text-neutral-900 rounded-full border-2 border-neutral-900 hover:bg-neutral-50 active:scale-90 transition-all shadow-xl">
@@ -692,7 +736,7 @@ function App() {
                     );
                     return (
                       <div style={{ height: 1792 * maxScale }} className="flex justify-center items-start">
-                        <FramePreview frame={selectedFrame} photos={selectedPhotosForLayout} scale={maxScale} mirrorMode={mirrorMode} />
+                        <FramePreview frame={selectedFrame} photos={selectedPhotosForLayout} scale={maxScale} mirrorMode={mirrorMode} filter={selectedFilter} showBrandLabel={showBrandLabel} />
                       </div>
                     );
                   })()}
@@ -721,7 +765,7 @@ function App() {
                         <button key={i} onClick={() => togglePhotoSelection(photo)}
                           className={`relative w-24 flex-shrink-0 aspect-[3/4] rounded-lg overflow-hidden shadow-md border-2 transition-all pointer-events-auto ${isSel ? 'border-black scale-[1.05]' : 'border-white opacity-90 hover:opacity-100'}`}>
                           <img src={photo} className="w-full h-full object-cover pointer-events-none" 
-                               style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none' }} />
+                               style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none', filter: selectedFilter?.cssFilter || 'none' }} />
                           {isSel && (
                             <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
                               <div className="w-6 h-6 bg-black text-white rounded-full flex items-center justify-center font-black text-xs shadow-md ring-1 ring-white">
@@ -784,7 +828,7 @@ function App() {
                                 <div key={i} className="absolute overflow-hidden z-10" 
                                   style={{ ...slots[i], width: '463px', height: '689px', backgroundColor: selectedFrame.hex || '#ffffff' }}>
                                   <img src={p} className="w-full h-full object-cover" 
-                                       style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none' }} />
+                                       style={{ transform: mirrorMode ? 'scaleX(-1)' : 'none', filter: selectedFilter?.cssFilter || 'none' }} />
                                 </div>
                               );
                             })}
@@ -797,7 +841,7 @@ function App() {
                             )}
                             
                             <div className="absolute left-0 right-0 z-10 flex justify-center items-center" style={{ top: '1478px', height: '442px' }}>
-                              <FrameLabel frame={selectedFrame} size1="80px" size2="46px" gap="20px" />
+                              <FrameLabel frame={selectedFrame} size1="80px" size2="46px" gap="20px" showBrandLabel={showBrandLabel} />
                             </div>
                           </div>
                         </div>
@@ -807,30 +851,79 @@ function App() {
                 </div>
 
                 <div className="w-full max-w-2xl bg-white/94 backdrop-blur-3xl rounded-[28px] border border-neutral-100 shadow-2xl p-4 flex flex-col gap-2.5 mb-2">
-                  <div className="flex gap-8 border-b border-neutral-50 px-4 pb-1 mb-1">
-                    <div className="pb-2 text-[14px] font-black text-black relative">
-                      프레임 선택
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black rounded-full" />
+                  <div className="flex items-center justify-between border-b border-neutral-100 px-4 pb-1 mb-1">
+                    <div className="flex gap-6">
+                      <button
+                        onClick={() => setActiveResultTab('frame')}
+                        className={`pb-2 text-[14px] font-black relative transition-all ${
+                          activeResultTab === 'frame' ? 'text-black' : 'text-neutral-400 hover:text-neutral-600'
+                        }`}
+                      >
+                        프레임 선택
+                        {activeResultTab === 'frame' && (
+                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black rounded-full" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setActiveResultTab('filter')}
+                        className={`pb-2 text-[14px] font-black relative transition-all flex items-center gap-1.5 ${
+                          activeResultTab === 'filter' ? 'text-black' : 'text-neutral-400 hover:text-neutral-600'
+                        }`}
+                      >
+                        <Sparkles size={14} /> 필터 선택
+                        {activeResultTab === 'filter' && (
+                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black rounded-full" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Brand Label Toggle Button */}
+                    <div className="flex items-center gap-2 pb-2">
+                      <span className="text-[11px] font-black text-neutral-400 tracking-tight">신림네컷/날짜</span>
+                      <button 
+                        onClick={() => setShowBrandLabel(!showBrandLabel)}
+                        className={`w-9 h-5 rounded-full transition-all relative ${showBrandLabel ? 'bg-black' : 'bg-neutral-200'}`}
+                      >
+                        <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${showBrandLabel ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
                     </div>
                   </div>
 
                   <div className="relative">
-                    <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-4 pt-1 scroll-smooth flex-nowrap px-4 -mx-4 group">
-                      {INITIAL_FRAMES.map(f => (
-                        <button key={f.id} 
-                          onClick={() => { setSelectedFrame(f); }}
-                          className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-black scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
-                          {f.image ? <img src={f.image} className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ backgroundColor: f.hex }} />}
-                        </button>
-                      ))}
-                      {customFrames.map(f => (
-                        <button key={f.id} 
-                          onClick={() => { setSelectedFrame(f); }}
-                          className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-black scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
-                          <img src={f.image} className="w-full h-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
+                    {activeResultTab === 'frame' ? (
+                      <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-4 pt-1 scroll-smooth flex-nowrap px-4 -mx-4 group">
+                        {INITIAL_FRAMES.map(f => (
+                          <button key={f.id} 
+                            onClick={() => { setSelectedFrame(f); }}
+                            className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-black scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
+                            {f.image ? <img src={f.image} className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ backgroundColor: f.hex }} />}
+                          </button>
+                        ))}
+                        {customFrames.map(f => (
+                          <button key={f.id} 
+                            onClick={() => { setSelectedFrame(f); }}
+                            className={`w-14 h-14 flex-shrink-0 rounded-xl border-[3px] transition-all relative overflow-hidden ${selectedFrame.id === f.id ? 'border-black scale-105 shadow-lg z-20' : 'border-neutral-50 hover:border-neutral-100'}`}>
+                            <img src={f.image} className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex gap-2.5 overflow-x-auto custom-scrollbar pb-4 pt-1 scroll-smooth flex-nowrap px-4 -mx-4 group">
+                        {PHOTO_FILTERS.map(flt => (
+                          <button
+                            key={flt.id}
+                            onClick={() => setSelectedFilter(flt)}
+                            className={`px-4 py-3 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-1.5 flex-shrink-0 border-2 ${
+                              selectedFilter.id === flt.id
+                                ? 'border-black bg-black text-white shadow-lg scale-105'
+                                : 'border-neutral-100 bg-neutral-50 text-neutral-600 hover:bg-white hover:border-neutral-200'
+                            }`}
+                          >
+                            <span>{flt.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex gap-2 justify-center pt-2 border-t border-neutral-50 px-1 mt-0.5">
